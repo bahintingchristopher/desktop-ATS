@@ -133,9 +133,9 @@ function InterviewRoom() {
         setError("Other participants' audio was not captured (no system audio). Only your microphone will be recorded.");
       }
       toMono(ctx.createMediaStreamSource(mic)).connect(merger, 0, 1);
-      const tracks = [...display.getVideoTracks(), ...dest.stream.getAudioTracks()];
-      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus") ? "video/webm;codecs=vp9,opus" : "video/webm";
-      const rec = new MediaRecorder(new MediaStream(tracks), { mimeType });
+      // Audio only: the screen video is required by getDisplayMedia but never recorded.
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
+      const rec = new MediaRecorder(new MediaStream(dest.stream.getAudioTracks()), { mimeType });
       const chunks: Blob[] = [];
       rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
       rec.onstop = async () => {

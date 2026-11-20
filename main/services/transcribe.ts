@@ -85,11 +85,47 @@ function run(cmd: string, args: string[]) {
   });
 }
 
-/** webm -> 16kHz stereo wav (remote audio left, mic right) -> multilingual whisper.cpp (large-v3) -> .txt with speaker labels. */
+type Seg = { from: number; text: string };
+
+/** Read whisper's JSON output and keep real speech: drops empty lines, bracketed noise tags and repeated hallucinations. */
+function readSegments(jsonPath: string): Seg[] {
+  if (!fs.existsSync(jsonPath)) return [];
+  const j = JSON.parse(fs.readFileSync(jsonPath, "utf8")) as { transcription?: { offsets: { from: number }; text: string }[] };
+  const out: Seg[] = [];
+  const seen = new Map<string, number>();
+  for (const s of j.transcription ?? []) {
+    const text = s.text.replace(/\[[^\]]*\]|\([^)]*\)|\*[^*]*\*/g, "").replace(/\s+/g, " ").trim();
+    if (!text || !/[\p{L}\p{N}]/u.test(text)) continue;
+    const key = text.toLowerCase();
+    const n = (seen.get(key) ?? 0) + 1;
+    seen.set(key, n);
+    if (n > 2) continue; // same line over and over = whisper looping on silence
+    if (out.length && out[out.length - 1].text.toLowerCase() === key) continue;
+    out.push({ from: s.offsets.from, text });
+  }
+  return out;
+}
+
+/** Merge both sides by time into "Name: line" dialogue, joining consecutive lines from the same speaker. */
+function dialogue(hr: Seg[], applicant: Seg[], applicantName: string) {
+  const all = [...hr.map((s) => ({ ...s, who: "HR" })), ...applicant.map((s) => ({ ...s, who: applicantName }))].sort((a, b) => a.from - b.from);
+  const lines: { who: string; text: string }[] = [];
+  for (const s of all) {
+    const last = lines[lines.length - 1];
+    if (last && last.who === s.who) last.text += " " + s.text;
+    else lines.push({ who: s.who, text: s.text });
+  }
+  return lines.map((l) => `${l.who}: ${l.text}`).join("\n") + "\n";
+}
+
+/** Recording (remote audio left, HR mic right) -> each side transcribed separately -> text-only dialogue; audio is deleted. */
 export async function transcribe(recordingId: number) {
   const db = getDb();
-  const rec = db.prepare("SELECT * FROM recordings WHERE id=?").get(recordingId) as { audio_path: string } | undefined;
+  const rec = db
+    .prepare("SELECT r.*, a.name AS applicant_name FROM recordings r LEFT JOIN applicants a ON a.id = r.applicant_id WHERE r.id=?")
+    .get(recordingId) as { audio_path: string; applicant_name: string | null } | undefined;
   if (!rec) throw new Error("Recording not found");
+  const applicantName = (rec.applicant_name ?? "").trim().split(/\s+/)[0] || "Applicant";
   let t = resolveTools();
   if (!t.ffmpeg || !t.whisper || !t.model) {
     // First use: fetch the tools automatically, then continue.
@@ -99,25 +135,37 @@ export async function transcribe(recordingId: number) {
     if (!t.ffmpeg || !t.whisper || !t.model) throw new Error("Transcription tools could not be installed. Check your internet connection.");
   }
   const base = rec.audio_path.replace(/\.webm$/, "");
-  const wav = base + ".wav";
+  const sides = { applicant: { wav: base + "_left.wav", out: base + "_left" }, hr: { wav: base + "_right.wav", out: base + "_right" } };
+  const temp = Object.values(sides).flatMap((s) => [s.wav, s.out + ".json"]);
   db.prepare("UPDATE recordings SET status='transcribing' WHERE id=?").run(recordingId);
   broadcast("transcribe:progress", { recordingId, status: "transcribing" });
   try {
-    await run(t.ffmpeg!, ["-y", "-i", rec.audio_path, "-ar", "16000", "-ac", "2", "-c:a", "pcm_s16le", wav]);
-    await run(t.whisper!, [
-      "-m", t.model!, "-f", wav, "-l", language(),
-      "-t", String(Math.max(1, os.cpus().length - 1)),
-      "-di", "-sns",
-      "-mc", "0", // no carry-over context: stops repeated hallucinated lines
-      "-otxt", "-of", base + "_transcript",
+    // Left channel = other participants (applicant), right channel = HR microphone.
+    await run(t.ffmpeg!, [
+      "-y", "-i", rec.audio_path, "-vn",
+      "-filter_complex", "[0:a]channelsplit=channel_layout=stereo[l][r]",
+      "-map", "[l]", "-ar", "16000", "-c:a", "pcm_s16le", sides.applicant.wav,
+      "-map", "[r]", "-ar", "16000", "-c:a", "pcm_s16le", sides.hr.wav,
     ]);
-    fs.rmSync(wav, { force: true });
-    fs.rmSync(base + "_transcript.srt", { force: true });
+    for (const s of Object.values(sides)) {
+      await run(t.whisper!, [
+        "-m", t.model!, "-f", s.wav, "-l", language(),
+        "-t", String(Math.max(1, os.cpus().length - 1)),
+        "-sns",
+        "-mc", "0", // no carry-over context: stops repeated hallucinated lines
+        "-nth", "0.6", // stricter no-speech threshold: skip silence instead of inventing text
+        "-oj", "-of", s.out,
+      ]);
+    }
     const txt = base + "_transcript.txt";
+    fs.writeFileSync(txt, dialogue(readSegments(sides.hr.out + ".json"), readSegments(sides.applicant.out + ".json"), applicantName), "utf8");
+    for (const f of temp) fs.rmSync(f, { force: true });
+    fs.rmSync(rec.audio_path, { force: true }); // keep only the text transcript
     db.prepare("UPDATE recordings SET status='done', transcript_path=? WHERE id=?").run(txt, recordingId);
     broadcast("transcribe:progress", { recordingId, status: "done", transcript: txt });
     return txt;
   } catch (e) {
+    for (const f of temp) fs.rmSync(f, { force: true });
     db.prepare("UPDATE recordings SET status='error' WHERE id=?").run(recordingId);
     broadcast("transcribe:progress", { recordingId, status: "error", error: String(e) });
     throw e;
