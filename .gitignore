@@ -9,3 +9,4 @@ resources/*.dll
 resources/models/
 *.log
 renderer/.next-build/
+dist-installer/

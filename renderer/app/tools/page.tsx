@@ -111,13 +111,28 @@ function InterviewRoom() {
       const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       const ctx = new AudioContext();
       const dest = ctx.createMediaStreamDestination();
+      // Keep the two sides on separate channels: force a discrete 2-channel destination
+      // (otherwise the stereo mix can be up/down-mixed so both channels end up identical).
+      dest.channelCount = 2;
+      dest.channelCountMode = "explicit";
+      dest.channelInterpretation = "discrete";
       const merger = ctx.createChannelMerger(2);
       merger.connect(dest);
+      // Downmix each source to mono before it enters its merger input.
+      const toMono = (src: AudioNode) => {
+        const g = ctx.createGain();
+        g.channelCount = 1;
+        g.channelCountMode = "explicit";
+        g.channelInterpretation = "speakers";
+        src.connect(g);
+        return g;
+      };
       if (display.getAudioTracks().length) {
-        const remote = ctx.createMediaStreamSource(new MediaStream(display.getAudioTracks()));
-        remote.connect(merger, 0, 0);
+        toMono(ctx.createMediaStreamSource(new MediaStream(display.getAudioTracks()))).connect(merger, 0, 0);
+      } else {
+        setError("Other participants' audio was not captured (no system audio). Only your microphone will be recorded.");
       }
-      ctx.createMediaStreamSource(mic).connect(merger, 0, 1);
+      toMono(ctx.createMediaStreamSource(mic)).connect(merger, 0, 1);
       const tracks = [...display.getVideoTracks(), ...dest.stream.getAudioTracks()];
       const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus") ? "video/webm;codecs=vp9,opus" : "video/webm";
       const rec = new MediaRecorder(new MediaStream(tracks), { mimeType });

@@ -14,7 +14,7 @@ const shellCalls = [];
 fs.mkdirSync(userData, { recursive: true });
 fs.mkdirSync(path.join(dataFolder, "Applicants"), { recursive: true });
 fs.mkdirSync(path.join(bundledResources, "models"), { recursive: true });
-for (const file of ["ffmpeg.exe", "whisper-cli.exe", path.join("models", "ggml-base.bin")]) {
+for (const file of ["ffmpeg.exe", "whisper-cli.exe", path.join("models", "ggml-large-v3.bin")]) {
   fs.writeFileSync(path.join(bundledResources, file), "test");
 }
 
@@ -291,10 +291,10 @@ test("meetings", async () => {
 test("tools and transcription guards", async () => {
   const toolDir = path.join(temp, "tools");
   fs.mkdirSync(path.join(toolDir, "models"), { recursive: true });
-  for (const file of ["ffmpeg.exe", "whisper-cli.exe", path.join("models", "ggml-base.bin")]) {
+  for (const file of ["ffmpeg.exe", "whisper-cli.exe", path.join("models", "ggml-large-v3.bin")]) {
     fs.writeFileSync(path.join(toolDir, file), "test");
   }
-  assert.deepEqual(setup.missing(toolDir, "ggml-base.bin"), { ffmpeg: false, whisper: false, model: false });
+  assert.deepEqual(setup.missing(toolDir, "ggml-large-v3.bin"), { ffmpeg: false, whisper: false, model: false });
   assert.deepEqual(await setup.installTools(toolDir), { ffmpeg: false, whisper: false, model: false });
   assert.match(setup.TOOL_URLS.ffmpeg, /ffmpeg-release-essentials\.zip/);
 
@@ -302,7 +302,7 @@ test("tools and transcription guards", async () => {
   assert.equal(status.ffmpeg, true);
   assert.equal(status.whisper, true);
   assert.equal(status.model, true);
-  assert.equal(status.modelName, "ggml-base.bin");
+  assert.equal(status.modelName, "ggml-large-v3.bin");
   assert.deepEqual(await transcribe.installTranscriptionTools(), status);
   await assert.rejects(transcribe.transcribe(99999999), /Recording not found/);
 });

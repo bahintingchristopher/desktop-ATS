@@ -151,6 +151,21 @@ app.on("second-instance", () => {
   win.focus();
 });
 
+/**
+ * After install, fetch the Whisper model (~3 GB for large-v3) in the background so the first
+ * interview doesn't have to wait. Retries every 10 minutes while offline; stops once everything is present.
+ */
+function autoInstallTranscriptionTools() {
+  const ready = () => { const t = toolStatus(); return t.ffmpeg && t.whisper && t.model; };
+  const attempt = () => {
+    if (ready()) return;
+    installTranscriptionTools()
+      .catch((e) => console.warn("Transcription tools download failed, retrying later:", e))
+      .finally(() => { if (!ready()) setTimeout(attempt, 10 * 60_000); });
+  };
+  setTimeout(attempt, 5_000); // let the window open first
+}
+
 app.whenReady().then(() => {
   getDb();
   registerAppProtocol();
@@ -164,6 +179,7 @@ app.whenReady().then(() => {
 
   createWindow();
   if (mailConfig().email) mail.startAutoSync();
+  autoInstallTranscriptionTools();
 
   app.on("activate", () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });

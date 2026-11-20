@@ -168,12 +168,21 @@ export default function SettingsPage() {
 
         <Card title="Transcription (local Whisper)">
           <div className="space-y-3">
-            <Field label="Whisper model file">
-              <Select value={s["whisper.model"] ?? "ggml-base.bin"} onChange={set("whisper.model")}>
-                <option value="ggml-base.bin">base: multilingual, auto-detect language (recommended)</option>
-                <option value="ggml-small.bin">small: multilingual, more accurate, slower</option>
-                <option value="ggml-base.en.bin">base.en: English only, faster</option>
-                <option value="ggml-small.en.bin">small.en: English only, more accurate</option>
+            <Field label="Whisper model file" hint="large-v3 is the most accurate (~3 GB download, slowest). large-v3-turbo is nearly as accurate and several times faster.">
+              <Select
+                value={!s["whisper.model"] || s["whisper.model"].endsWith(".en.bin") ? "ggml-large-v3.bin" : s["whisper.model"]}
+                onChange={set("whisper.model")}
+              >
+                <option value="ggml-large-v3.bin">large-v3: best accuracy, slow (recommended)</option>
+                <option value="ggml-large-v3-turbo.bin">large-v3-turbo: near-best, much faster</option>
+                <option value="ggml-small.bin">small: lighter, less accurate</option>
+              </Select>
+            </Field>
+            <Field label="Interview language" hint="Pick the main language of your calls. Taglish works best with Tagalog.">
+              <Select value={s["whisper.language"] || "tl"} onChange={set("whisper.language")}>
+                <option value="tl">Tagalog / Taglish</option>
+                <option value="en">English</option>
+                <option value="auto">Auto-detect (less reliable)</option>
               </Select>
             </Field>
             {tools && toolsReady && (

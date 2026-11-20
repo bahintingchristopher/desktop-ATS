@@ -31,8 +31,7 @@
           "*.dll",
           "!parakeet*.dll",
           "!llama.dll",
-          "!SDL2.dll",
-          "models/ggml-base.bin"
+          "!SDL2.dll"
         ]
       }
     ],

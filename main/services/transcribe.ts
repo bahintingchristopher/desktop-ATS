@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from "electron";
 import { spawn } from "child_process";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { getDb } from "../db";
 import { getSetting } from "./settings";
@@ -15,7 +16,14 @@ function userToolsDir() {
   return path.join(app.getPath("userData"), "tools");
 }
 
-const modelName = () => getSetting("whisper.model") || "ggml-base.bin";
+export const DEFAULT_MODEL = "ggml-large-v3.bin";
+/** English-only (.en) models invent English text for Filipino speech, so they fall back to the default. */
+const modelName = () => {
+  const m = getSetting("whisper.model");
+  return !m || /\.en\.bin$/.test(m) ? DEFAULT_MODEL : m;
+};
+/** Whisper language code; "auto" mis-detects Taglish, so Tagalog is the default. */
+const language = () => getSetting("whisper.language") || "tl";
 
 /** Pick the folder that has everything: bundled first, then the downloaded copy. */
 function toolsDir() {
@@ -77,7 +85,7 @@ function run(cmd: string, args: string[]) {
   });
 }
 
-/** webm -> 16kHz stereo wav (remote audio left, mic right) -> multilingual whisper.cpp -> .txt with speaker labels. */
+/** webm -> 16kHz stereo wav (remote audio left, mic right) -> multilingual whisper.cpp (large-v3) -> .txt with speaker labels. */
 export async function transcribe(recordingId: number) {
   const db = getDb();
   const rec = db.prepare("SELECT * FROM recordings WHERE id=?").get(recordingId) as { audio_path: string } | undefined;
@@ -96,7 +104,13 @@ export async function transcribe(recordingId: number) {
   broadcast("transcribe:progress", { recordingId, status: "transcribing" });
   try {
     await run(t.ffmpeg!, ["-y", "-i", rec.audio_path, "-ar", "16000", "-ac", "2", "-c:a", "pcm_s16le", wav]);
-    await run(t.whisper!, ["-m", t.model!, "-f", wav, "-l", "auto", "-di", "-sns", "-nth", "0.8", "-otxt", "-of", base + "_transcript"]);
+    await run(t.whisper!, [
+      "-m", t.model!, "-f", wav, "-l", language(),
+      "-t", String(Math.max(1, os.cpus().length - 1)),
+      "-di", "-sns",
+      "-mc", "0", // no carry-over context: stops repeated hallucinated lines
+      "-otxt", "-of", base + "_transcript",
+    ]);
     fs.rmSync(wav, { force: true });
     fs.rmSync(base + "_transcript.srt", { force: true });
     const txt = base + "_transcript.txt";
