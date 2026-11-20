@@ -65,7 +65,7 @@ function findFile(dir: string, name: string): string | null {
 }
 
 /** Install whatever is missing into `dir`. Safe to re-run; finished parts are skipped. */
-export async function installTools(dir: string, model = "ggml-base.en.bin", onProgress: (p: Progress) => void = () => undefined) {
+export async function installTools(dir: string, model = "ggml-base.bin", onProgress: (p: Progress) => void = () => undefined) {
   fs.mkdirSync(path.join(dir, "models"), { recursive: true });
   const need = missing(dir, model);
   const work = fs.mkdtempSync(path.join(os.tmpdir(), "ats-tools-"));

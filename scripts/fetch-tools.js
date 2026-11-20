@@ -4,7 +4,7 @@ const path = require("path");
 const { installTools } = require("../dist-main/services/setup.js");
 
 const dir = path.join(__dirname, "..", "resources");
-const model = process.argv[2] || "ggml-base.en.bin";
+const model = process.argv[2] || "ggml-base.bin";
 let lastPct = {};
 installTools(dir, model, (p) => {
   if (p.phase === "download" && p.total) {

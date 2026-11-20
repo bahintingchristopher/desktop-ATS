@@ -15,7 +15,7 @@ function userToolsDir() {
   return path.join(app.getPath("userData"), "tools");
 }
 
-const modelName = () => getSetting("whisper.model") || "ggml-base.en.bin";
+const modelName = () => getSetting("whisper.model") || "ggml-base.bin";
 
 /** Pick the folder that has everything: bundled first, then the downloaded copy. */
 function toolsDir() {
@@ -77,7 +77,7 @@ function run(cmd: string, args: string[]) {
   });
 }
 
-/** webm -> 16kHz mono wav (ffmpeg) -> whisper.cpp -> .txt + .srt saved next to the audio. */
+/** webm -> 16kHz stereo wav (remote audio left, mic right) -> multilingual whisper.cpp -> .txt with speaker labels. */
 export async function transcribe(recordingId: number) {
   const db = getDb();
   const rec = db.prepare("SELECT * FROM recordings WHERE id=?").get(recordingId) as { audio_path: string } | undefined;
@@ -95,9 +95,10 @@ export async function transcribe(recordingId: number) {
   db.prepare("UPDATE recordings SET status='transcribing' WHERE id=?").run(recordingId);
   broadcast("transcribe:progress", { recordingId, status: "transcribing" });
   try {
-    await run(t.ffmpeg!, ["-y", "-i", rec.audio_path, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wav]);
-    await run(t.whisper!, ["-m", t.model!, "-f", wav, "-otxt", "-osrt", "-of", base + "_transcript"]);
+    await run(t.ffmpeg!, ["-y", "-i", rec.audio_path, "-ar", "16000", "-ac", "2", "-c:a", "pcm_s16le", wav]);
+    await run(t.whisper!, ["-m", t.model!, "-f", wav, "-l", "auto", "-di", "-sns", "-nth", "0.8", "-otxt", "-of", base + "_transcript"]);
     fs.rmSync(wav, { force: true });
+    fs.rmSync(base + "_transcript.srt", { force: true });
     const txt = base + "_transcript.txt";
     db.prepare("UPDATE recordings SET status='done', transcript_path=? WHERE id=?").run(txt, recordingId);
     broadcast("transcribe:progress", { recordingId, status: "done", transcript: txt });

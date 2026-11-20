@@ -7,6 +7,7 @@
   "scripts": {
     "build:main": "tsc -p main/tsconfig.json",
     "build:renderer": "node scripts/build-renderer.js",
+    "test": "npm run build:main && node --test tests/*.test.js",
     "dev": "npm run build:main && node -e \"require('fs').rmSync('renderer/.next',{recursive:true,force:true})\" && concurrently -k \"npm --prefix renderer run dev\" \"wait-on http://localhost:3000 && cross-env ATS_DEV=1 node scripts/electron.js\"",
     "start": "npm run build:main && npm run build:renderer && node scripts/electron.js",
     "fetch-tools": "npm run build:main && node scripts/fetch-tools.js",
@@ -16,7 +17,7 @@
     "appId": "com.desktopats.app",
     "files": [
       "dist-main/**",
-      "renderer/out/**",
+      "renderer/.next-build/**",
       "package.json",
       "build/icon.ico"
     ],
@@ -31,7 +32,7 @@
           "!parakeet*.dll",
           "!llama.dll",
           "!SDL2.dll",
-          "models/ggml-base.en.bin"
+          "models/ggml-base.bin"
         ]
       }
     ],

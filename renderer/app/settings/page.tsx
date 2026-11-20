@@ -169,11 +169,11 @@ export default function SettingsPage() {
         <Card title="Transcription (local Whisper)">
           <div className="space-y-3">
             <Field label="Whisper model file">
-              <Select value={s["whisper.model"] ?? "ggml-base.en.bin"} onChange={set("whisper.model")}>
-                <option value="ggml-base.en.bin">base.en: fast, English (recommended)</option>
-                <option value="ggml-small.en.bin">small.en: more accurate, slower</option>
-                <option value="ggml-base.bin">base: multilingual (Tagalog, etc.)</option>
-                <option value="ggml-small.bin">small: multilingual, more accurate</option>
+              <Select value={s["whisper.model"] ?? "ggml-base.bin"} onChange={set("whisper.model")}>
+                <option value="ggml-base.bin">base: multilingual, auto-detect language (recommended)</option>
+                <option value="ggml-small.bin">small: multilingual, more accurate, slower</option>
+                <option value="ggml-base.en.bin">base.en: English only, faster</option>
+                <option value="ggml-small.en.bin">small.en: English only, more accurate</option>
               </Select>
             </Field>
             {tools && toolsReady && (

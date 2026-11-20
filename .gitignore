@@ -1,6 +1,7 @@
 node_modules/
 dist-main/
 dist/
+dist2/
 renderer/.next/
 renderer/out/
 resources/*.exe

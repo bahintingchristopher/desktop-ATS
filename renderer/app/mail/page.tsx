@@ -1,10 +1,24 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { CalendarPlus, Inbox, Paperclip, PenSquare, RefreshCw, Reply, Send, UserPlus } from "lucide-react";
+import { CalendarPlus, Inbox, Mail, Paperclip, PenSquare, RefreshCw, Reply, Send, Trash2, UserPlus } from "lucide-react";
 import { call, fmtDate, inElectron, on, useIsElectron, type Applicant, type EmailRow } from "@/lib/ats";
 import ComposeModal, { type ComposeInit } from "@/components/ComposeModal";
 import ScheduleModal from "@/components/ScheduleModal";
 import { Button, cx, Empty, ErrorText, Input, PageHeader } from "@/components/ui";
+
+const URL_RE = /(https?:\/\/[^\s<>"']+)/g;
+
+function linkify(text: string) {
+  return text.split(URL_RE).map((part, i) =>
+    /^https?:\/\//.test(part) ? (
+      <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="break-all text-accent underline">
+        {part}
+      </a>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
+  );
+}
 
 export default function MailPage() {
   const electron = useIsElectron();
@@ -16,17 +30,23 @@ export default function MailPage() {
   const [schedule, setSchedule] = useState<number | null>(null);
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const [unread, setUnread] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!inElectron()) return;
     call<EmailRow[]>("mail:list", folder, search).then(setList).catch((e) => setError(e.message));
+    call<number>("mail:unreadCount").then(setUnread).catch(() => undefined);
     call<Applicant[]>("applicants:list").then(setApplicants);
   }, [folder, search]);
 
   useEffect(() => {
     load();
-    return on("mail:updated", load);
+    return on("mail:updated", (payload) => {
+      load();
+      const unread = (payload as { unread?: number } | undefined)?.unread;
+      if (typeof unread === "number") setUnread(unread);
+    });
   }, [load]);
 
   const open = async (m: EmailRow) => {
@@ -62,6 +82,13 @@ export default function MailPage() {
 
   const applicantOf = (m: EmailRow) => applicants.find((a) => a.id === m.applicant_id);
 
+  const removeEmail = async (m: EmailRow) => {
+    if (!window.confirm("Delete this email?")) return;
+    await call("mail:delete", m.id);
+    if (sel?.id === m.id) setSel(null);
+    load();
+  };
+
   const reply = (m: EmailRow) => {
     const a = applicantOf(m);
     setCompose({
@@ -95,6 +122,11 @@ export default function MailPage() {
             {(["INBOX", "SENT"] as const).map((f) => (
               <Button key={f} variant={folder === f ? "default" : "ghost"} onClick={() => { setFolder(f); setSel(null); }}>
                 {f === "INBOX" ? <Inbox size={15} /> : <Send size={15} />} {f === "INBOX" ? "Inbox" : "Sent"}
+                {f === "INBOX" && unread > 0 && (
+                  <span className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-bad px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    <Mail size={10} /> {unread}
+                  </span>
+                )}
               </Button>
             ))}
             <Input className="ml-auto max-w-40" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -102,10 +134,10 @@ export default function MailPage() {
           <ul className="min-h-0 flex-1 overflow-auto">
             {list.length === 0 && <Empty>{electron ? "No emails yet. Set up your email in Settings, then Sync." : "Open in desktop app"}</Empty>}
             {list.map((m) => (
-              <li key={m.id}>
+              <li key={m.id} className="relative">
                 <button
                   onClick={() => open(m)}
-                  className={cx("block w-full border-b border-line px-3 py-2.5 text-left hover:bg-panel-2", sel?.id === m.id && "bg-accent-soft")}
+                  className={cx("block w-full border-b border-line px-3 py-2.5 pr-10 text-left hover:bg-panel-2", sel?.id === m.id && "bg-accent-soft")}
                 >
                   <div className="flex items-center gap-2">
                     {!m.is_read && <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />}
@@ -120,6 +152,14 @@ export default function MailPage() {
                     {JSON.parse(m.attachments || "[]").length > 0 && <Paperclip size={12} />}
                     <span className="truncate">{m.preview}</span>
                   </div>
+                </button>
+                <button
+                  aria-label="Delete email"
+                  title="Delete email"
+                  onClick={(e) => { e.stopPropagation(); removeEmail(m); }}
+                  className="absolute right-2 top-2 z-10 rounded p-1 text-muted hover:bg-accent-soft hover:text-fg"
+                >
+                  <Trash2 size={14} />
                 </button>
               </li>
             ))}
@@ -152,6 +192,9 @@ export default function MailPage() {
                     </Button>
                   )
                 )}
+                <Button onClick={() => removeEmail(sel)}>
+                  <Trash2 size={15} /> Delete
+                </Button>
               </div>
               {atts.length > 0 && (
                 <div className="flex flex-wrap gap-2">
@@ -163,7 +206,7 @@ export default function MailPage() {
                   {sel.applicant_id && <span className="self-center text-xs text-muted">Saved to the applicant&apos;s resume folder</span>}
                 </div>
               )}
-              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{sel.text || "(no text content)"}</pre>
+              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{sel.text ? linkify(sel.text) : "(no text content)"}</pre>
             </div>
           )}
         </div>

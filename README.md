@@ -54,7 +54,7 @@ main/                  Electron main process (TypeScript → dist-main/)
     files.ts           per-applicant folders, recordings, safe file access
     transcribe.ts      ffmpeg → whisper.cpp → .txt/.srt
     meetings.ts        embedded Google Meet / Zoom view
-renderer/              Next.js (static export → renderer/out/)
+  renderer/              Next.js (static export → renderer/.next-build/)
   app/{mail,applicants,tools,analytics,settings,folder}/page.tsx
   components/          Sidebar, ui, ComposeModal, ScheduleModal, Calendar
   lib/ats.ts           typed IPC client + shared types

@@ -11,7 +11,7 @@ import { getAllSettings, getSetting, saveSettings, mailConfig } from "./services
 import { installTranscriptionTools, toolStatus, transcribe } from "./services/transcribe";
 
 const isDev = process.env.ATS_DEV === "1";
-const OUT = path.join(app.getAppPath(), "renderer", "out");
+const OUT = path.join(app.getAppPath(), "renderer", ".next-build");
 
 protocol.registerSchemesAsPrivileged([
   { scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
@@ -25,7 +25,7 @@ function createWindow() {
     height: 900,
     minWidth: 1100,
     minHeight: 700,
-    backgroundColor: "#0d2c5e",
+    backgroundColor: "#0a192f",
     title: "Desktop ATS Workspace",
     icon: path.join(app.getAppPath(), "build", "icon.ico"),
     autoHideMenuBar: true,
@@ -41,7 +41,7 @@ function createWindow() {
   win.loadURL(isDev ? `http://localhost:3000/${page}/` : `app://ats/${page}/`);
 }
 
-/** Serves the static Next.js export (renderer/out) under app://ats/ */
+/** Serves the static Next.js export (renderer/.next-build) under app://ats/ */
 function registerAppProtocol() {
   protocol.handle("app", (req) => {
     let p = decodeURIComponent(new URL(req.url).pathname);
@@ -75,9 +75,15 @@ function registerIpc() {
   handle("mail:test", () => mail.testConnection());
   handle("mail:sync", () => mail.syncInbox());
   handle("mail:list", (folder, search) => data.listEmails(folder, search));
-  handle("mail:get", (id) => data.getEmail(id));
+  handle("mail:unreadCount", () => data.unreadInboxCount());
+  handle("mail:get", (id) => {
+    const email = data.getEmail(Number(id));
+    mail.notifyUpdated();
+    return email;
+  });
   handle("mail:send", (input) => mail.sendMail(input));
   handle("mail:saveAttachments", (emailId, applicantId) => mail.saveEmailAttachments(emailId, applicantId));
+  handle("mail:delete", (id) => mail.deleteEmail(Number(id)));
 
   // Applicants
   handle("applicants:list", () => data.listApplicants());
@@ -110,12 +116,19 @@ function registerIpc() {
 
   // Files / folder
   handle("files:root", () => files.dataRoot());
-  handle("files:tree", (dir) => files.listTree(dir));
+  handle("files:tree", (dir) => { files.removeLegacyEmailFolders(); return files.listTree(dir); });
+  handle("files:orphanApplicants", () => files.orphanApplicantFolders());
   handle("files:applicantDir", (id) => files.applicantDir(id));
   handle("files:readText", (p) => files.readText(p));
   handle("files:readBinary", (p) => files.readBinary(p));
   handle("files:open", (p) => files.openPath(p));
   handle("files:reveal", (p) => files.showInFolder(p));
+  handle("files:deleteApplicant", (applicantId, folderPath) => {
+    if (folderPath) files.removeApplicantFolder(folderPath);
+    else files.removeApplicantFolder(files.applicantDirPath(applicantId));
+    if (applicantId != null) data.deleteApplicant(Number(applicantId));
+    return true;
+  });
 
   // Recording + transcription
   handle("recording:save", (applicantId, buf, interviewId) => files.saveRecording(applicantId, buf, interviewId));

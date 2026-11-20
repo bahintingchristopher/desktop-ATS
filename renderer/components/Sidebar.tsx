@@ -25,11 +25,15 @@ export default function Sidebar() {
   useEffect(() => {
     if (!inElectron()) return;
     const load = () => {
-      call<{ is_read: number }[]>("mail:list", "INBOX", "").then((r) => setUnread(r.filter((m) => !m.is_read).length)).catch(() => undefined);
+      call<number>("mail:unreadCount").then(setUnread).catch(() => undefined);
       call<boolean>("settings:configured").then(setConfigured).catch(() => undefined);
     };
     load();
-    const off = on("mail:updated", load);
+    const off = on("mail:updated", (payload) => {
+      load();
+      const unread = (payload as { unread?: number } | undefined)?.unread;
+      if (typeof unread === "number") setUnread(unread);
+    });
     const t = setInterval(load, 30_000);
     return () => {
       off();
@@ -42,12 +46,12 @@ export default function Sidebar() {
       <div className="px-3 pb-3 pt-4">
         <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
           {/* eslint-disable-next-line @next/next/no-img-element -- static export, plain img is fine */}
-          <img src="/logo-wide.png" alt="ALMA" className="mx-auto h-12 w-auto object-contain" />
+          <img src="/logo-wide.webp" alt="ALMA" className="mx-auto h-12 w-auto object-contain" />
         </div>
-        <p className="mt-2 text-center text-xs font-medium tracking-wide text-green-100/80">Desktop ATS Workspace</p>
+        <p className="mt-2 text-center text-xs font-medium tracking-wide text-slate-300/80">Desktop ATS Workspace</p>
       </div>
       <nav className="flex-1 space-y-1 px-2">
-        {NAV.map(({ href, label, icon: Icon, hint }, i) => {
+        {NAV.map(({ href, label, icon: Icon, hint }) => {
           const active = path?.startsWith(href.slice(0, -1));
           return (
             <Link
@@ -55,15 +59,18 @@ export default function Sidebar() {
               href={href}
               className={cx(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition",
-                active ? "bg-sidebar-active text-white" : "text-green-100/80 hover:bg-sidebar-active/60 hover:text-white",
+                active ? "bg-sidebar-active text-white" : "text-slate-300/80 hover:bg-sidebar-active/60 hover:text-white",
               )}
             >
-              <span className="w-4 text-xs text-green-200/70">{i + 1}.</span>
               <Icon size={17} />
               <span className="flex-1">{label}</span>
-              {label === "Mail" && unread > 0 && <span className="rounded-full bg-accent px-1.5 text-xs text-white">{unread}</span>}
+              {label === "Mail" && unread > 0 && (
+                <span className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-bad px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  <Mail size={10} /> {unread}
+                </span>
+              )}
               {label === "Settings" && !configured && <span className="h-2 w-2 rounded-full bg-warn" title="Email not set up" />}
-              {hint && <span className="text-[10px] text-green-200/70">{hint}</span>}
+              {hint && <span className="text-[10px] text-slate-400/70">{hint}</span>}
             </Link>
           );
         })}

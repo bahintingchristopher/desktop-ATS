@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Circle, FileAudio, FileText, Folder, PhoneOff, Square, Video } from "lucide-react";
+import { Circle, FileText, FileVideo, Folder, PhoneOff, Square, Video } from "lucide-react";
 import { call, inElectron, on, useIsElectron, type Applicant, type FileNode } from "@/lib/ats";
 import { Button, Card, cx, Empty, ErrorText, Input, Select } from "@/components/ui";
 
@@ -105,15 +105,22 @@ function InterviewRoom() {
     setError(null);
     if (!aid) return setError("Choose the applicant first so the recording is saved to their folder.");
     try {
-      // System audio (the other participants) via loopback + your microphone, mixed into one track.
+      // Screen video with remote audio on the left channel and your microphone on the right,
+      // so Whisper's stereo diarization can label each party. Recording runs until Stop Recording.
       const display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-      display.getVideoTracks().forEach((t) => t.stop());
       const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       const ctx = new AudioContext();
       const dest = ctx.createMediaStreamDestination();
-      if (display.getAudioTracks().length) ctx.createMediaStreamSource(new MediaStream(display.getAudioTracks())).connect(dest);
-      ctx.createMediaStreamSource(mic).connect(dest);
-      const rec = new MediaRecorder(dest.stream, { mimeType: "audio/webm;codecs=opus" });
+      const merger = ctx.createChannelMerger(2);
+      merger.connect(dest);
+      if (display.getAudioTracks().length) {
+        const remote = ctx.createMediaStreamSource(new MediaStream(display.getAudioTracks()));
+        remote.connect(merger, 0, 0);
+      }
+      ctx.createMediaStreamSource(mic).connect(merger, 0, 1);
+      const tracks = [...display.getVideoTracks(), ...dest.stream.getAudioTracks()];
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus") ? "video/webm;codecs=vp9,opus" : "video/webm";
+      const rec = new MediaRecorder(new MediaStream(tracks), { mimeType });
       const chunks: Blob[] = [];
       rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
       rec.onstop = async () => {
@@ -125,6 +132,8 @@ function InterviewRoom() {
       };
       rec.start(1000);
       recRef.current = { rec, streams: [display, mic], ctx };
+      const screenTrack = display.getVideoTracks()[0];
+      if (screenTrack) screenTrack.onended = () => { if (recRef.current?.rec === rec && rec.state !== "inactive") stopRecording(); };
       setElapsed(0);
       setRecording(true);
       setStatus("Recording. Let participants know the call is being recorded.");
@@ -212,7 +221,7 @@ function InterviewRoom() {
             <ul className="space-y-1 text-sm">
               {files.map((f) => (
                 <li key={f.path} className="flex items-center gap-2">
-                  {f.name.endsWith(".webm") ? <FileAudio size={14} className="text-accent" /> : <FileText size={14} className="text-muted" />}
+                  {f.name.endsWith(".webm") ? <FileVideo size={14} className="text-accent" /> : <FileText size={14} className="text-muted" />}
                   <button className="truncate hover:underline" onClick={() => call("files:open", f.path)}>{f.name}</button>
                 </li>
               ))}

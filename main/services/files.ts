@@ -12,11 +12,15 @@ export function dataRoot() {
 
 const safe = (s: string) => s.replace(/[^a-zA-Z0-9-_ ]/g, "").trim().replace(/\s+/g, "_") || "Applicant";
 
-export function applicantDir(applicantId: number) {
+export function applicantDirPath(applicantId: number) {
   const a = getDb().prepare("SELECT id,name FROM applicants WHERE id=?").get(applicantId) as { id: number; name: string } | undefined;
   if (!a) throw new Error("Applicant not found");
-  const dir = path.join(dataRoot(), "Applicants", `${safe(a.name)}_${a.id}`);
-  for (const sub of ["interviews", "resume", "emails"]) fs.mkdirSync(path.join(dir, sub), { recursive: true });
+  return path.join(dataRoot(), "Applicants", `${safe(a.name)}_${a.id}`);
+}
+
+export function applicantDir(applicantId: number) {
+  const dir = applicantDirPath(applicantId);
+  for (const sub of ["interviews", "resume"]) fs.mkdirSync(path.join(dir, sub), { recursive: true });
   return dir;
 }
 
@@ -50,6 +54,26 @@ export function listTree(dir = dataRoot(), depth = 4): FileNode[] {
     .sort((a, b) => Number(b.isDir) - Number(a.isDir) || a.name.localeCompare(b.name));
 }
 
+export function orphanApplicantFolders(): FileNode[] {
+  const applicants = path.join(dataRoot(), "Applicants");
+  return listTree(applicants, 0).filter((n) => {
+    if (!n.isDir) return false;
+    const id = n.name.match(/_(\d+)$/)?.[1];
+    if (!id) return true;
+    return !getDb().prepare("SELECT 1 FROM applicants WHERE id=?").get(Number(id));
+  });
+}
+
+export function removeLegacyEmailFolders() {
+  const applicants = path.join(dataRoot(), "Applicants");
+  if (!fs.existsSync(applicants)) return;
+  for (const entry of fs.readdirSync(applicants, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const emails = path.join(applicants, entry.name, "emails");
+    if (fs.existsSync(emails) && fs.readdirSync(emails).length === 0) fs.rmSync(emails, { recursive: true, force: true });
+  }
+}
+
 export function readText(p: string) {
   return fs.readFileSync(assertInside(p), "utf8");
 }
@@ -61,6 +85,14 @@ export function openPath(p: string) {
 }
 export function showInFolder(p: string) {
   shell.showItemInFolder(assertInside(p));
+}
+
+export function removeApplicantFolder(p: string) {
+  const root = path.resolve(dataRoot());
+  const full = assertInside(p);
+  const applicants = path.join(root, "Applicants");
+  if (!full.startsWith(applicants + path.sep)) throw new Error("Not an applicant folder");
+  fs.rmSync(full, { recursive: true, force: true });
 }
 
 export function saveAttachment(applicantId: number, filename: string, content: Buffer, sub = "resume") {

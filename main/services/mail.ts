@@ -3,8 +3,9 @@ import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import nodemailer from "nodemailer";
 import { getDb } from "../db";
+import { saveApplicant, setStage, unreadInboxCount } from "./data";
 import { mailConfig } from "./settings";
-import { saveAttachment } from "./files";
+import { applicantDir, saveAttachment } from "./files";
 import { autoScreen } from "./screening";
 
 function imapClient() {
@@ -38,12 +39,23 @@ export async function testConnection() {
 }
 
 function notify() {
-  for (const w of BrowserWindow.getAllWindows()) w.webContents.send("mail:updated");
+  const unread = unreadInboxCount();
+  for (const w of BrowserWindow.getAllWindows()) w.webContents.send("mail:updated", { unread });
+}
+
+export function notifyUpdated() {
+  notify();
 }
 
 function matchApplicant(addr: string): number | null {
   const row = getDb().prepare("SELECT id FROM applicants WHERE lower(email)=lower(?)").get(addr) as { id: number } | undefined;
   return row?.id ?? null;
+}
+
+export function deleteEmail(id: number) {
+  const result = getDb().prepare("UPDATE emails SET deleted=1 WHERE id=?").run(id);
+  if (result.changes) notify();
+  return result.changes > 0;
 }
 
 let syncing = false;
@@ -110,6 +122,22 @@ export function startAutoSync(intervalMs = 60_000) {
   timer = setInterval(tick, intervalMs);
 }
 
+export function applicantFromReply(source: { from_addr: string; from_name: string; subject: string } | undefined, fallbackEmail: string) {
+  const email = (source?.from_addr || fallbackEmail).trim().toLowerCase();
+  const name = (source?.from_name || email.split("@")[0] || "Applicant").trim();
+  const subject = (source?.subject || "").replace(/^(re|fwd):\s*/i, "").trim();
+  const position = subject.match(/application for\s+(.+)/i)?.[1]?.trim() || subject.slice(0, 120) || "Application";
+  return { name, email, position, source: "Email", stage: "Applied" };
+}
+
+export function stageFromSentMail(template: string | undefined, subject: string, body: string): "Offered" | "Rejected" | null {
+  const t = (template ?? "").toLowerCase();
+  const text = `${subject}\n${body}`.toLowerCase();
+  if (t === "offer" || /\b(job offer|offer letter|offer of employment|we are pleased to offer)\b/.test(text)) return "Offered";
+  if (t === "rejection" || /\b(rejected|not moving forward|move forward with other candidates|other candidates)\b/.test(text)) return "Rejected";
+  return null;
+}
+
 export type SendInput = {
   to: string;
   subject: string;
@@ -117,6 +145,7 @@ export type SendInput = {
   applicantId?: number | null;
   inReplyTo?: string | null;
   ics?: string | null;
+  template?: string;
 };
 
 export async function sendMail(input: SendInput) {
@@ -131,13 +160,36 @@ export async function sendMail(input: SendInput) {
     references: input.inReplyTo ?? undefined,
     icalEvent: input.ics ? { method: "REQUEST", content: input.ics } : undefined,
   });
+
+  let applicantId = input.applicantId ?? matchApplicant(input.to);
+  let createdApplicant = false;
+  if (!applicantId) {
+    const source = input.inReplyTo
+      ? getDb().prepare("SELECT id,from_addr,from_name,subject FROM emails WHERE message_id=? OR in_reply_to=? ORDER BY date DESC LIMIT 1").get(input.inReplyTo, input.inReplyTo) as
+          | { id: number; from_addr: string; from_name: string; subject: string }
+          | undefined
+      : undefined;
+    const details = applicantFromReply(source, input.to);
+    if (details.email && details.email !== c.email.toLowerCase()) {
+      applicantId = saveApplicant(details);
+      applicantDir(applicantId);
+      getDb().prepare("UPDATE emails SET applicant_id=? WHERE id=? OR lower(from_addr)=lower(?)")
+        .run(applicantId, source?.id ?? -1, details.email);
+      if (source?.id) await saveEmailAttachments(source.id, applicantId).catch(() => []);
+      await autoScreen(applicantId).catch(() => null);
+      createdApplicant = true;
+    }
+  }
+
   getDb()
     .prepare(`INSERT OR IGNORE INTO emails (message_id,folder,applicant_id,from_addr,from_name,to_addr,subject,text,date,is_read,in_reply_to)
       VALUES (?,?,?,?,?,?,?,?,?,1,?)`)
-    .run(info.messageId, "SENT", input.applicantId ?? matchApplicant(input.to), c.email, c.displayName, input.to,
+    .run(info.messageId, "SENT", applicantId, c.email, c.displayName, input.to,
       input.subject, text, new Date().toISOString(), input.inReplyTo ?? null);
+  const stage = stageFromSentMail(input.template, input.subject, input.body);
+  if (applicantId && stage) setStage(applicantId, stage);
   notify();
-  return { messageId: info.messageId };
+  return { messageId: info.messageId, applicantId, stage, createdApplicant };
 }
 
 /** Download an email's attachments again (by UID) and save into the applicant's resume folder. */

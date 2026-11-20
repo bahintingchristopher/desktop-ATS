@@ -2,10 +2,10 @@
 
 /* Dark navy theme matching the mockups */
 @theme {
-  --color-bg: #0d2c5e;          /* main screen: blue */
-  --color-sidebar: #0f4a34;     /* left menu: green */
-  --color-sidebar-line: #1d6b4d;
-  --color-sidebar-active: #1a7a55;
+  --color-bg: #0a192f;          /* main screen: deep navy */
+  --color-sidebar: #1e1e2e;     /* left menu: dark slate */
+  --color-sidebar-line: #313244;
+  --color-sidebar-active: #45475a;
   --color-panel: #12376f;
   --color-panel-2: #1a4485;
   --color-line: #2a5596;
@@ -13,7 +13,7 @@
   --color-fg: #e6eaf5;
   --color-accent: #6d7fd8;
   --color-accent-soft: #2b3566;
-  --color-chart: #b8c3f0;
+  --color-chart: #c9963a;
   --color-good: #4ade80;
   --color-warn: #fbbf24;
   --color-bad: #ef4444;

@@ -7,7 +7,7 @@ export const STAGES = ["Applied", "Screened", "Interviewed", "Offered", "Hired",
 /* ---------- Applicants ---------- */
 export function listApplicants() {
   return getDb().prepare(`SELECT a.*,
-      (SELECT count(*) FROM emails e WHERE e.applicant_id=a.id AND e.is_read=0) unread,
+      (SELECT count(*) FROM emails e WHERE e.applicant_id=a.id AND e.is_read=0 AND e.deleted=0) unread,
       (SELECT min(start) FROM interviews i WHERE i.applicant_id=a.id AND i.start>=datetime('now')) next_interview
     FROM applicants a ORDER BY a.updated_at DESC`).all();
 }
@@ -69,8 +69,13 @@ export function listEmails(folder: "INBOX" | "SENT", search = "") {
   return getDb().prepare(`SELECT e.id,e.message_id,e.applicant_id,e.from_addr,e.from_name,e.to_addr,e.subject,
       substr(e.text,1,160) preview,e.date,e.is_read,e.attachments,a.name applicant_name
     FROM emails e LEFT JOIN applicants a ON a.id=e.applicant_id
-    WHERE e.folder=? AND (e.subject LIKE ? OR e.from_addr LIKE ? OR e.from_name LIKE ? OR e.to_addr LIKE ?)
+    WHERE e.deleted=0 AND e.folder=? AND (e.subject LIKE ? OR e.from_addr LIKE ? OR e.from_name LIKE ? OR e.to_addr LIKE ?)
     ORDER BY e.date DESC LIMIT 500`).all(folder, q, q, q, q);
+}
+
+export function unreadInboxCount() {
+  const row = getDb().prepare("SELECT count(*) c FROM emails WHERE folder='INBOX' AND is_read=0 AND deleted=0").get() as { c: number };
+  return row.c;
 }
 
 export function getEmail(id: number) {

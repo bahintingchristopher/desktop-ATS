@@ -16,7 +16,7 @@ const EMPTY: Data = {
   sources: [], monthly: [], funnel: [],
 };
 
-const PIE = ["#b8c3f0", "#8d9be0", "#6d7fd8", "#4b5bb0", "#e6eaf5", "#3a4680"];
+const CHART = "#c9963a";
 const AXIS = { stroke: "#8b98b8", fontSize: 12 };
 const TOOLTIP = { contentStyle: { background: "#16213a", border: "1px solid #24304d", borderRadius: 6 }, labelStyle: { color: "#e6eaf5" } };
 
@@ -77,7 +77,7 @@ export default function AnalyticsPage() {
               <PieChart>
                 <Pie data={d.sources} dataKey="value" nameKey="name" innerRadius={60} outerRadius={95} stroke="#111a2e" strokeWidth={2}
                   label={({ name, value }) => `${name} ${Math.round(((value as number) / totalSources) * 100)}%`}>
-                  {d.sources.map((_, i) => <Cell key={i} fill={PIE[i % PIE.length]} />)}
+                  {d.sources.map((_, i) => <Cell key={i} fill={CHART} />)}
                 </Pie>
                 <Tooltip {...TOOLTIP} />
               </PieChart>
@@ -90,15 +90,15 @@ export default function AnalyticsPage() {
             <AreaChart data={monthly}>
               <defs>
                 <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#b8c3f0" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#b8c3f0" stopOpacity={0} />
+                  <stop offset="0%" stopColor={CHART} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={CHART} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="#24304d" vertical={false} />
               <XAxis dataKey="label" {...AXIS} />
               <YAxis allowDecimals={false} {...AXIS} />
               <Tooltip {...TOOLTIP} />
-              <Area type="monotone" dataKey="count" name="Applications" stroke="#b8c3f0" fill="url(#fill)" strokeWidth={2} />
+              <Area type="monotone" dataKey="count" name="Applications" stroke={CHART} fill="url(#fill)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </Card>
@@ -110,7 +110,7 @@ export default function AnalyticsPage() {
               <XAxis dataKey="stage" {...AXIS} />
               <YAxis allowDecimals={false} {...AXIS} />
               <Tooltip {...TOOLTIP} cursor={{ fill: "#16213a" }} />
-              <Bar dataKey="count" name="Applicants" fill="#b8c3f0" radius={[3, 3, 0, 0]}>
+              <Bar dataKey="count" name="Applicants" fill={CHART} radius={[3, 3, 0, 0]}>
                 <LabelList dataKey="count" position="top" fill="#e6eaf5" fontSize={12} />
               </Bar>
             </BarChart>

@@ -114,7 +114,7 @@ async function applicantText(applicantId: number) {
     if (t.trim()) { parts.push(t); sources.push(f); }
   }
   if (a.email) {
-    const emails = db.prepare("SELECT subject,text FROM emails WHERE lower(from_addr)=lower(?)").all(a.email) as { subject: string; text: string }[];
+    const emails = db.prepare("SELECT subject,text FROM emails WHERE lower(from_addr)=lower(?) AND deleted=0").all(a.email) as { subject: string; text: string }[];
     if (emails.length) { parts.push(...emails.map((e) => `${e.subject}\n${e.text}`)); sources.push(`${emails.length} email(s)`); }
   }
   return { text: parts.join("\n"), sources };

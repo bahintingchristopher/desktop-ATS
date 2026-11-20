@@ -46,7 +46,7 @@ export default function ScheduleModal({
         const ics = await call<string>("interviews:ics", { id, title, start: s.toISOString(), end: e.toISOString(), link, attendee: a.email });
         const when = s.toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" });
         const body = `${fillTemplate(TEMPLATES.Invitation.body, a.name, a.position)}\n\nWhen: ${when} (${minutes} min)\nWhere: ${platform}${link ? `\nLink: ${link}` : ""}`;
-        await call("mail:send", { to: a.email, subject: TEMPLATES.Invitation.subject, body, applicantId: a.id, ics });
+        await call("mail:send", { to: a.email, subject: TEMPLATES.Invitation.subject, body, applicantId: a.id, ics, template: "Invitation" });
       }
       onSaved?.();
       onClose();

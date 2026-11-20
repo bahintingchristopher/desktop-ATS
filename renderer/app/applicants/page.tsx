@@ -40,6 +40,7 @@ export default function ApplicantsPage() {
     return on("mail:updated", load);
   }, [load]);
   useEffect(loadDetail, [loadDetail]);
+  useEffect(() => on("mail:updated", loadDetail), [loadDetail]);
 
   const refresh = () => { load(); loadDetail(); };
 

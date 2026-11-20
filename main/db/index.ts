@@ -25,7 +25,7 @@ export function getDb() {
       applicant_id INTEGER REFERENCES applicants(id) ON DELETE SET NULL,
       from_addr TEXT, from_name TEXT, to_addr TEXT, subject TEXT,
       text TEXT, html TEXT, date TEXT, is_read INTEGER DEFAULT 0,
-      in_reply_to TEXT, attachments TEXT DEFAULT '[]'
+      in_reply_to TEXT, attachments TEXT DEFAULT '[]', deleted INTEGER DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS interviews (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,6 +63,8 @@ export function getDb() {
   add("score", "INTEGER");
   add("score_details", "TEXT");
   add("screened_at", "TEXT");
+  const emailCols = (db.prepare("PRAGMA table_info(emails)").all() as { name: string }[]).map((c) => c.name);
+  if (!emailCols.includes("deleted")) db.exec("ALTER TABLE emails ADD COLUMN deleted INTEGER DEFAULT 0");
   // Clean up history left behind by applicants deleted in older versions (it skewed analytics).
   db.exec("DELETE FROM stage_history WHERE applicant_id NOT IN (SELECT id FROM applicants)");
   return db;

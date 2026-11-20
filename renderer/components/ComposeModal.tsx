@@ -61,7 +61,7 @@ export default function ComposeModal({ init, onClose, onSent }: { init: ComposeI
     setBusy(true);
     setError(null);
     try {
-      await call("mail:send", { to, subject, body, applicantId: init.applicantId, inReplyTo: init.inReplyTo, ics: init.ics });
+      await call("mail:send", { to, subject, body, applicantId: init.applicantId, inReplyTo: init.inReplyTo, ics: init.ics, template: tpl });
       onSent?.();
       onClose();
     } catch (e) {
