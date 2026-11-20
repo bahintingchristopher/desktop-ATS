@@ -109,6 +109,7 @@ function readSegments(jsonPath: string): Seg[] {
 /** Merge both sides by time into "Name: line" dialogue, joining consecutive lines from the same speaker. */
 function dialogue(hr: Seg[], applicant: Seg[], applicantName: string) {
   const all = [...hr.map((s) => ({ ...s, who: "HR" })), ...applicant.map((s) => ({ ...s, who: applicantName }))].sort((a, b) => a.from - b.from);
+  if (!all.length) return "No speech was detected in this call.\n";
   const lines: { who: string; text: string }[] = [];
   for (const s of all) {
     const last = lines[lines.length - 1];
@@ -118,7 +119,7 @@ function dialogue(hr: Seg[], applicant: Seg[], applicantName: string) {
   return lines.map((l) => `${l.who}: ${l.text}`).join("\n") + "\n";
 }
 
-/** Recording (remote audio left, HR mic right) -> each side transcribed separately -> text-only dialogue; audio is deleted. */
+/** Recording (remote audio left, HR mic right) -> each side transcribed separately -> text-only dialogue saved next to the recording. */
 export async function transcribe(recordingId: number) {
   const db = getDb();
   const rec = db
@@ -160,7 +161,6 @@ export async function transcribe(recordingId: number) {
     const txt = base + "_transcript.txt";
     fs.writeFileSync(txt, dialogue(readSegments(sides.hr.out + ".json"), readSegments(sides.applicant.out + ".json"), applicantName), "utf8");
     for (const f of temp) fs.rmSync(f, { force: true });
-    fs.rmSync(rec.audio_path, { force: true }); // keep only the text transcript
     db.prepare("UPDATE recordings SET status='done', transcript_path=? WHERE id=?").run(txt, recordingId);
     broadcast("transcribe:progress", { recordingId, status: "done", transcript: txt });
     return txt;

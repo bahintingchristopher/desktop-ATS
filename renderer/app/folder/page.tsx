@@ -134,6 +134,7 @@ function Preview({ file, all }: { file: FileNode; all: FileNode[] }) {
   const base = file.path.replace(/(_transcript)?\.(webm|wav|mp3|m4a|txt|srt)$/i, "");
   // A transcript shows text only; the player appears only when the recording itself is selected.
   const audio = isAudio ? file : undefined;
+  const isVideo = /\.webm$/i.test(audio?.name ?? "");
   const transcript = all.find((f) => f.path === base + "_transcript.txt");
   const srt = all.find((f) => f.path === base + "_transcript.srt");
 
@@ -142,9 +143,10 @@ function Preview({ file, all }: { file: FileNode; all: FileNode[] }) {
   const [text, setText] = useState("");
   const [segs, setSegs] = useState<Seg[]>([]);
   const [now, setNow] = useState(0);
+  const videoPlayer = useRef<HTMLVideoElement>(null);
   const audioPlayer = useRef<HTMLAudioElement>(null);
   const seek = (time: number) => {
-    const el = audioPlayer.current;
+    const el = videoPlayer.current ?? audioPlayer.current;
     if (el) { el.currentTime = time; void el.play(); }
   };
 
@@ -154,7 +156,7 @@ function Preview({ file, all }: { file: FileNode; all: FileNode[] }) {
     (async () => {
       if (audio) {
         const bytes = await call<Uint8Array>("files:readBinary", audio.path);
-        const mime = /\.webm$/i.test(audio.name) ? "audio/webm" : /\.wav$/i.test(audio.name) ? "audio/wav" : /\.m4a$/i.test(audio.name) ? "audio/mp4" : "audio/mpeg";
+        const mime = /\.webm$/i.test(audio.name) ? "video/webm" : /\.wav$/i.test(audio.name) ? "audio/wav" : /\.m4a$/i.test(audio.name) ? "audio/mp4" : "audio/mpeg";
         url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mime }));
         setSrc(url);
       }
@@ -173,7 +175,11 @@ function Preview({ file, all }: { file: FileNode; all: FileNode[] }) {
 
   return (
     <Card title={file.name} actions={<Button variant="ghost" onClick={() => call("files:reveal", file.path)}><ExternalLink size={15} /> Show in folder</Button>}>
-      {src && <audio ref={audioPlayer} src={src} controls className="mb-4 w-full" onTimeUpdate={(e) => setNow(e.currentTarget.currentTime)} />}
+      {src && (isVideo ? (
+        <video ref={videoPlayer} src={src} controls className="mb-4 w-full rounded bg-black" onTimeUpdate={(e) => setNow(e.currentTarget.currentTime)} />
+      ) : (
+        <audio ref={audioPlayer} src={src} controls className="mb-4 w-full" onTimeUpdate={(e) => setNow(e.currentTarget.currentTime)} />
+      ))}
       {pdfSrc && <iframe src={pdfSrc} title={file.name} style={{ height: "70vh" }} className="mb-4 w-full rounded border border-line bg-white" />}
       {segs.length > 0 ? (
         <ul className="space-y-1">

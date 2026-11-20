@@ -164,9 +164,8 @@ const SECTIONS: Section[] = [
     title: "6. Folder: recordings, transcripts and resumes",
     body: (
       <Steps items={[
-        <>Each applicant has a folder with <b>interviews</b> (call audio + transcript), <b>resume</b> and <b>emails</b>.</>,
-        <>Click a recording to play it. The transcript highlights the line being spoken.</>,
-        <>Click any transcript line to jump to that moment in the audio.</>,
+        <>Each applicant has a folder with <b>interviews</b> (call video recording + transcript), <b>resume</b> and <b>emails</b>.</>,
+        <>Click the recording (.webm) to watch the call. Click the transcript (.txt) to read the conversation, labeled by speaker (HR and the applicant).</>,
         <>Click <b>Open in Explorer</b> to see the files in Windows.</>,
       ]} />
     ),
