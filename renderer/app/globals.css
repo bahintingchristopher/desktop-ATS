@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/* Dark navy theme matching the mockups */
+@theme {
+  --color-bg: #0d2c5e;          /* main screen: blue */
+  --color-sidebar: #0f4a34;     /* left menu: green */
+  --color-sidebar-line: #1d6b4d;
+  --color-sidebar-active: #1a7a55;
+  --color-panel: #12376f;
+  --color-panel-2: #1a4485;
+  --color-line: #2a5596;
+  --color-muted: #a9bde0;
+  --color-fg: #e6eaf5;
+  --color-accent: #6d7fd8;
+  --color-accent-soft: #2b3566;
+  --color-chart: #b8c3f0;
+  --color-good: #4ade80;
+  --color-warn: #fbbf24;
+  --color-bad: #ef4444;
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+
+input,
+textarea,
+select {
+  color-scheme: dark;
+}

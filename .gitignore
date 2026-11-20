@@ -1,0 +1,10 @@
+node_modules/
+dist-main/
+dist/
+renderer/.next/
+renderer/out/
+resources/*.exe
+resources/*.dll
+resources/models/
+*.log
+renderer/.next-build/
