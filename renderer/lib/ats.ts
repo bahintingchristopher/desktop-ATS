@@ -31,7 +31,7 @@ export function on(channel: string, cb: (payload: unknown) => void) {
 }
 
 /* ---------- Shared types ---------- */
-export const STAGES = ["Applied", "Screened", "Interviewed", "Offered", "Hired", "Rejected"] as const;
+export const STAGES = ["Applied", "Screened", "For Interview", "Interviewed", "Offered", "Hired", "Rejected"] as const;
 export const SOURCES = ["Email", "LinkedIn", "Careers Page", "Referral", "Job Board", "Other"] as const;
 
 export type Applicant = {

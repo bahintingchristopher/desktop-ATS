@@ -90,7 +90,7 @@ const SECTIONS: Section[] = [
       <>
         <Steps items={[
           <>Click a name on the left to see their details, emails, interviews and recordings.</>,
-          <>Move them through the hiring steps by clicking a stage: <b>Applied → Screened → Interviewed → Offered → Hired</b> (or <b>Rejected</b>).</>,
+          <>Move them through the hiring steps by clicking a stage: <b>Applied → Screened → For Interview → Interviewed → Offered → Hired</b> (or <b>Rejected</b>).</>,
           <>Click <b>Schedule</b>, choose the date and time, choose Google Meet or Zoom, and paste the meeting link.</>,
           <>Keep <b>&quot;Email the applicant an invitation&quot;</b> checked. They get an email with a calendar invite.</>,
           <>Open the <b>Calendar</b> tab to see all interviews. Click a day to schedule, or click an interview to join it.</>,

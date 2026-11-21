@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { getDb } from "../db";
 import { mailConfig } from "./settings";
 
-export const STAGES = ["Applied", "Screened", "Interviewed", "Offered", "Hired", "Rejected"] as const;
+export const STAGES = ["Applied", "Screened", "For Interview", "Interviewed", "Offered", "Hired", "Rejected"] as const;
 
 /* ---------- Applicants ---------- */
 export function listApplicants() {
@@ -105,7 +105,7 @@ export function saveInterview(i: InterviewInput) {
   }
   const id = Number(db.prepare("INSERT INTO interviews(applicant_id,title,start,end,platform,link,status) VALUES(@applicant_id,@title,@start,@end,@platform,@link,@status)").run(row).lastInsertRowid);
   const a = db.prepare("SELECT stage FROM applicants WHERE id=?").get(i.applicant_id) as { stage: string } | undefined;
-  if (a && (a.stage === "Applied" || a.stage === "Screened")) setStage(i.applicant_id, "Interviewed");
+  if (a && (a.stage === "Applied" || a.stage === "Screened")) setStage(i.applicant_id, "For Interview");
   return id;
 }
 
@@ -154,7 +154,7 @@ export function analytics(from?: string, to?: string) {
     sources: db.prepare("SELECT coalesce(source,'Other') name, count(*) value FROM applicants WHERE created_at BETWEEN ? AND ? GROUP BY 1 ORDER BY 2 DESC").all(f, t),
     monthly: db.prepare(`SELECT strftime('%Y-%m',created_at) month, count(*) count FROM applicants
       WHERE created_at>=date('now','start of month','-11 months') GROUP BY 1 ORDER BY 1`).all(),
-    funnel: ["Applied", "Screened", "Interviewed", "Offered", "Hired"].map((s) => ({ stage: s, count: reached(s) })),
+    funnel: ["Applied", "Screened", "For Interview", "Interviewed", "Offered", "Hired"].map((s) => ({ stage: s, count: reached(s) })),
     byStage: db.prepare("SELECT stage, count(*) count FROM applicants GROUP BY stage").all(),
   };
 }

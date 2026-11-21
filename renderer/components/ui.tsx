@@ -72,6 +72,7 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
 const STAGE_COLORS: Record<string, string> = {
   Applied: "bg-slate-500/20 text-slate-300",
   Screened: "bg-sky-500/20 text-sky-300",
+  "For Interview": "bg-violet-500/20 text-violet-300",
   Interviewed: "bg-indigo-500/20 text-indigo-300",
   Offered: "bg-amber-500/20 text-amber-300",
   Hired: "bg-green-500/20 text-green-300",

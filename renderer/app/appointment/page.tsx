@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import AppointmentEditModal from "@/components/AppointmentEditModal";
 import { Card, Empty, ErrorText, PageHeader } from "@/components/ui";
 import { call, inElectron, on, type Interview } from "@/lib/ats";
 
@@ -23,6 +24,7 @@ const toolsHref = (i: Interview) => {
 export default function AppointmentPage() {
   const [rows, setRows] = useState<Interview[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Interview | null>(null);
 
   const load = useCallback(() => {
     if (!inElectron()) return;
@@ -76,6 +78,7 @@ export default function AppointmentPage() {
                     <Link className="text-accent underline" href={toolsHref(i)}>
                       {i.link ? "Join" : i.platform === "Zoom" ? "Open Zoom" : "Open Meet"}
                     </Link>
+                    <button className="ml-3 text-accent underline" onClick={() => setEditing(i)}>Edit</button>
                   </td>
                 </tr>
               ))}
@@ -83,6 +86,13 @@ export default function AppointmentPage() {
           </table>
         )}
       </Card>
+      {editing && (
+        <AppointmentEditModal
+          interview={editing}
+          onClose={() => setEditing(null)}
+          onSaved={load}
+        />
+      )}
     </div>
   );
 }

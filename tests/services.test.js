@@ -75,7 +75,7 @@ test.after(() => {
 });
 
 test("settings and mail config", () => {
-  assert.deepEqual(data.STAGES.slice(0, 2), ["Applied", "Screened"]);
+  assert.deepEqual(data.STAGES.slice(0, 3), ["Applied", "Screened", "For Interview"]);
   assert.equal(settings.MAIL_PRESETS["gmail.com"].imapHost, "imap.gmail.com");
 
   settings.setSetting("data.folder", dataFolder);
@@ -113,6 +113,7 @@ test("applicants, interviews, and analytics", () => {
     link: "https://meet.google.com/abc",
   });
   assert.ok(interviewId > 0);
+  assert.equal(data.getApplicant(id).applicant.stage, "For Interview");
   assert.ok(data.listInterviews("2030-01-01", "2030-01-02").some((i) => i.id === interviewId));
 
   const soonerId = data.saveInterview({
@@ -135,6 +136,21 @@ test("applicants, interviews, and analytics", () => {
   assert.ok(upcoming.findIndex((i) => i.id === soonerId) < upcoming.findIndex((i) => i.id === interviewId));
   assert.ok(!upcoming.some((i) => i.id === pastId));
 
+  data.saveInterview({
+    id: soonerId,
+    applicant_id: id,
+    title: "Screening Call",
+    start: "2029-01-02 14:00:00",
+    end: "2029-01-02 14:30:00",
+    platform: "Google Meet",
+    link: "https://meet.google.com/soon",
+    status: "Scheduled",
+  });
+  const updated = data.listInterviews("2029-01-01", "2029-01-03").find((i) => i.id === soonerId);
+  assert.equal(updated.start, "2029-01-02 14:00:00");
+  assert.equal(updated.title, "Screening Call");
+  assert.equal(updated.link, "https://meet.google.com/soon");
+
   data.deleteInterview(interviewId);
   data.deleteInterview(soonerId);
   data.deleteInterview(pastId);
@@ -147,6 +163,7 @@ test("applicants, interviews, and analytics", () => {
   const stats = data.analytics("2000-01-01", "2100-01-01");
   assert.ok(stats.totals.applicants >= 1);
   assert.ok(stats.funnel.some((f) => f.stage === "Screened"));
+  assert.ok(stats.funnel.some((f) => f.stage === "For Interview"));
   assert.ok(Array.isArray(stats.byStage));
 });
 
