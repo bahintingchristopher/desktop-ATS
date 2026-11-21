@@ -33,14 +33,19 @@ const electronMock = {
   BrowserWindow: { getAllWindows: () => [] },
   WebContentsView: class {
     constructor() {
-      this.webContents = {
-        session: { setPermissionRequestHandler: () => undefined },
+      const wc = {
+        handlers: {},
+        session: { setPermissionRequestHandler: (fn) => { wc.permissionHandler = fn; } },
         setWindowOpenHandler: () => undefined,
         getUserAgent: () => "Test Electron/1",
         setUserAgent(ua) { this.userAgent = ua; },
+        setZoomFactor(factor) { this.zoomFactor = factor; },
         loadURL(url) { this.loaded = url; },
+        on(event, handler) { this.handlers[event] = handler; },
+        executeJavaScript(code) { this.executed = code; return Promise.resolve(); },
         close() { this.closed = true; },
       };
+      this.webContents = wc;
     }
     setBounds(bounds) { this.bounds = bounds; }
     setVisible(visible) { this.visible = visible; }
@@ -166,6 +171,26 @@ test("files and applicant delete flow", async () => {
   assert.ok(fs.existsSync(recording.path));
   assert.ok(data.getApplicant(id).recordings.some((r) => r.id === recording.id));
 
+  const interviews = path.dirname(recording.path);
+  const staleTemps = [
+    "2026-11-20T13-04-29_call_left.wav",
+    "2026-11-20T13-04-29_call_right.wav",
+    "2026-11-20T13-04-29_call_left.json",
+    "2026-11-20T13-04-29_call_right.json",
+    "2026-11-20T13-04-29_call_left.txt",
+    "2026-11-20T13-04-29_call_right.txt",
+  ];
+  for (const name of staleTemps) fs.writeFileSync(path.join(interviews, name), "tmp");
+  const keepWebm = path.join(interviews, "2026-11-20T13-05-00_call.webm");
+  const keepTranscript = path.join(interviews, "2026-11-20T13-05-00_call_transcript.txt");
+  fs.writeFileSync(keepWebm, "audio");
+  fs.writeFileSync(keepTranscript, "text");
+  files.cleanupInterviewTemps();
+  for (const name of staleTemps) assert.equal(fs.existsSync(path.join(interviews, name)), false);
+  assert.ok(fs.existsSync(keepWebm));
+  assert.ok(fs.existsSync(keepTranscript));
+  assert.ok(fs.existsSync(recording.path));
+
   await files.openPath(attachment);
   files.showInFolder(attachment);
   assert.ok(shellCalls.some(([action]) => action === "open"));
@@ -269,8 +294,17 @@ test("meetings", async () => {
   await meetings.openMeeting(win, "https://meet.google.com/abc", bounds);
   const view = win.contentView.views[0];
   assert.equal(view.webContents.loaded, "https://meet.google.com/abc");
+  assert.equal(view.webContents.zoomFactor, 0.7);
+  view.webContents.handlers["did-finish-load"]();
+  assert.equal(view.webContents.zoomFactor, 0.7);
   assert.deepEqual(view.bounds, bounds);
   assert.doesNotMatch(view.webContents.userAgent, /Electron/);
+  const permission = (perm) => new Promise((resolve) => view.webContents.permissionHandler({}, perm, resolve));
+  assert.equal(await permission("media"), true);
+  assert.equal(await permission("display-capture"), true);
+  assert.equal(await permission("fullscreen"), false);
+  view.webContents.handlers["enter-html-full-screen"]();
+  assert.match(view.webContents.executed, /exitFullscreen/);
 
   meetings.setMeetingBounds({ x: 5, y: 6, width: 7, height: 8 });
   assert.deepEqual(view.bounds, { x: 5, y: 6, width: 7, height: 8 });
@@ -305,4 +339,17 @@ test("tools and transcription guards", async () => {
   assert.equal(status.modelName, "ggml-large-v3.bin");
   assert.deepEqual(await transcribe.installTranscriptionTools(), status);
   await assert.rejects(transcribe.transcribe(99999999), /Recording not found/);
+
+  const dialogue = transcribe.dialogue(
+    [
+      { from: 0, text: "Hello, how are you?" },
+      { from: 6, text: "I am happy being with you tonight." },
+    ],
+    [
+      { from: 2, text: "Hi, I am fine." },
+      { from: 8, text: "Me too." },
+    ],
+    "Mercy",
+  );
+  assert.equal(dialogue, "HR: Hello, how are you?\nMercy: Hi, I am fine.\nHR: I am happy being with you tonight.\nMercy: Me too.\n");
 });

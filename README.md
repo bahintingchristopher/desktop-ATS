@@ -62,5 +62,5 @@ resources/             ffmpeg / whisper binaries + models (bundled into the inst
 ```
 
 ## Notes
-- Google Meet does not allow being embedded in an iframe, so the meeting opens in a native Electron view placed inside the Tools panel. Zoom `zoom.us/j/<id>` links are switched to Zoom's web client.
+- Google Meet does not allow being embedded in an iframe, so the meeting opens in a native Electron view placed inside the Tools panel. Zoom `zoom.us/j/<id>` links are switched to Zoom's web client. The embedded view auto-resizes with the Interview Room panel, including down to the 960×540 window minimum, Meet/Zoom fullscreen is disabled so it cannot cover the app, and the page is fixed at 70% zoom so more of the call UI fits inside the panel.
 - Tell participants before you record. Recording laws vary by country.

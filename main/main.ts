@@ -23,8 +23,8 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1440,
     height: 900,
-    minWidth: 1100,
-    minHeight: 700,
+    minWidth: 960,
+    minHeight: 540,
     backgroundColor: "#0a192f",
     title: "Desktop ATS Workspace",
     icon: path.join(app.getAppPath(), "build", "icon.ico"),
@@ -168,6 +168,7 @@ function autoInstallTranscriptionTools() {
 
 app.whenReady().then(() => {
   getDb();
+  files.cleanupInterviewTemps();
   registerAppProtocol();
   registerIpc();
 

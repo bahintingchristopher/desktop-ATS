@@ -5,6 +5,7 @@ let view: WebContentsView | null = null;
 export type Bounds = { x: number; y: number; width: number; height: number };
 
 const ALLOWED = /(^|\.)meet\.google\.com$|(^|\.)zoom\.us$|(^|\.)accounts\.google\.com$/;
+const MEETING_ZOOM = 0.7;
 
 /** Normalize a meeting link. Zoom "/j/<id>" links go to Zoom's web client so the call runs inside the app. */
 function normalize(raw: string) {
@@ -24,8 +25,10 @@ export function openMeeting(win: BrowserWindow, url: string, bounds: Bounds) {
   closeMeeting(win);
   view = new WebContentsView({ webPreferences: { partition: "persist:meetings" } });
   const wc = view.webContents;
+  wc.setZoomFactor(MEETING_ZOOM);
+  wc.on("did-finish-load", () => wc.setZoomFactor(MEETING_ZOOM));
   wc.session.setPermissionRequestHandler((_wc, perm, cb) =>
-    cb(["media", "display-capture", "notifications", "fullscreen", "clipboard-sanitized-write"].includes(perm)),
+    cb(["media", "display-capture", "notifications", "clipboard-sanitized-write"].includes(perm)),
   );
   wc.setWindowOpenHandler(({ url }) => {
     try {
@@ -35,6 +38,9 @@ export function openMeeting(win: BrowserWindow, url: string, bounds: Bounds) {
       /* ignore bad url */
     }
     return { action: "deny" };
+  });
+  wc.on("enter-html-full-screen", () => {
+    wc.executeJavaScript("document.exitFullscreen && document.exitFullscreen()").catch(() => undefined);
   });
   // Present as a regular Chrome browser so Meet/Zoom serve their normal web clients.
   wc.setUserAgent(wc.getUserAgent().replace(/\s?Electron\/\S+/, "").replace(/\s?desktop-ats\/\S+/i, ""));

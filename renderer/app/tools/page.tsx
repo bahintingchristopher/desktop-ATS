@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Circle, FileText, FileVideo, Folder, PhoneOff, Square, Video } from "lucide-react";
 import { call, inElectron, on, useIsElectron, type Applicant, type FileNode } from "@/lib/ats";
@@ -23,6 +23,21 @@ function InterviewRoom() {
   const [inCall, setInCall] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+
+  const syncMeetingBounds = useCallback(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const left = Math.round(Math.max(0, r.left) + 1);
+    const top = Math.round(Math.max(0, r.top) + 1);
+    const right = Math.round(Math.min(window.innerWidth, r.right) - 1);
+    const bottom = Math.round(Math.min(window.innerHeight, r.bottom) - 1);
+    const width = Math.max(0, right - left);
+    const height = Math.max(0, bottom - top);
+    const visible = width > 2 && height > 2 && r.bottom > 1 && r.right > 1 && r.top < window.innerHeight - 1 && r.left < window.innerWidth - 1;
+    call("meeting:visible", visible);
+    call("meeting:bounds", { x: left, y: top, width, height });
+  }, []);
 
   // Recording state
   const recRef = useRef<{ rec: MediaRecorder; streams: MediaStream[]; ctx: AudioContext } | null>(null);
@@ -58,19 +73,34 @@ function InterviewRoom() {
     loadFiles();
   }), [loadFiles]);
 
-  // Keep the native meeting view glued to the placeholder div.
   useEffect(() => {
     if (!inCall || !stageRef.current) return;
     const el = stageRef.current;
+    let frame = 0;
     const push = () => {
-      const r = el.getBoundingClientRect();
-      call("meeting:bounds", { x: r.left, y: r.top, width: r.width, height: r.height });
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(syncMeetingBounds);
     };
+    syncMeetingBounds();
     const ro = new ResizeObserver(push);
     ro.observe(el);
+    if (el.parentElement) ro.observe(el.parentElement);
     window.addEventListener("resize", push);
-    return () => { ro.disconnect(); window.removeEventListener("resize", push); };
-  }, [inCall]);
+    window.addEventListener("scroll", push, true);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", push);
+    vv?.addEventListener("scroll", push);
+    return () => {
+      cancelAnimationFrame(frame);
+      ro.disconnect();
+      window.removeEventListener("resize", push);
+      window.removeEventListener("scroll", push, true);
+      vv?.removeEventListener("resize", push);
+      vv?.removeEventListener("scroll", push);
+    };
+  }, [inCall, syncMeetingBounds]);
+
+  useLayoutEffect(() => { if (inCall) syncMeetingBounds(); });
 
   // Leave the call when navigating away from Tools.
   useEffect(() => () => { if (inElectron()) call("meeting:close"); }, []);
@@ -89,6 +119,7 @@ function InterviewRoom() {
       await new Promise((r) => requestAnimationFrame(r));
       const r = stageRef.current!.getBoundingClientRect();
       await call("meeting:open", url, { x: r.left, y: r.top, width: r.width, height: r.height });
+      syncMeetingBounds();
     } catch (e) {
       setInCall(false);
       setError((e as Error).message);
@@ -207,7 +238,7 @@ function InterviewRoom() {
           </div>
         )}
 
-        <div ref={stageRef} className="relative min-h-[360px] flex-1 overflow-hidden rounded-lg border border-line bg-black/40">
+        <div ref={stageRef} className={cx("relative min-h-[240px] flex-1 overflow-hidden border border-line bg-black/40", !inCall && "rounded-lg")}>
           {!inCall && (
             <Empty>
               <div className="text-center">

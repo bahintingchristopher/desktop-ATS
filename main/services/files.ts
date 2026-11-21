@@ -74,6 +74,20 @@ export function removeLegacyEmailFolders() {
   }
 }
 
+export function cleanupInterviewTemps() {
+  const applicants = path.join(dataRoot(), "Applicants");
+  if (!fs.existsSync(applicants)) return;
+  const stale = /_call_(?:left|right)\.(?:wav|json|txt)$/i;
+  for (const entry of fs.readdirSync(applicants, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const interviews = path.join(applicants, entry.name, "interviews");
+    if (!fs.existsSync(interviews)) continue;
+    for (const file of fs.readdirSync(interviews, { withFileTypes: true })) {
+      if (file.isFile() && stale.test(file.name)) fs.rmSync(path.join(interviews, file.name), { force: true });
+    }
+  }
+}
+
 export function readText(p: string) {
   return fs.readFileSync(assertInside(p), "utf8");
 }

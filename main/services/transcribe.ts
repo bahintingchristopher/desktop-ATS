@@ -107,7 +107,7 @@ function readSegments(jsonPath: string): Seg[] {
 }
 
 /** Merge both sides by time into "Name: line" dialogue, joining consecutive lines from the same speaker. */
-function dialogue(hr: Seg[], applicant: Seg[], applicantName: string) {
+export function dialogue(hr: Seg[], applicant: Seg[], applicantName: string) {
   const all = [...hr.map((s) => ({ ...s, who: "HR" })), ...applicant.map((s) => ({ ...s, who: applicantName }))].sort((a, b) => a.from - b.from);
   if (!all.length) return "No speech was detected in this call.\n";
   const lines: { who: string; text: string }[] = [];
@@ -136,10 +136,13 @@ export async function transcribe(recordingId: number) {
     if (!t.ffmpeg || !t.whisper || !t.model) throw new Error("Transcription tools could not be installed. Check your internet connection.");
   }
   const base = rec.audio_path.replace(/\.webm$/, "");
-  const sides = { applicant: { wav: base + "_left.wav", out: base + "_left" }, hr: { wav: base + "_right.wav", out: base + "_right" } };
-  const temp = Object.values(sides).flatMap((s) => [s.wav, s.out + ".json"]);
   db.prepare("UPDATE recordings SET status='transcribing' WHERE id=?").run(recordingId);
   broadcast("transcribe:progress", { recordingId, status: "transcribing" });
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), "ats-transcribe-"));
+  const sides = {
+    applicant: { wav: path.join(work, "left.wav"), out: path.join(work, "left") },
+    hr: { wav: path.join(work, "right.wav"), out: path.join(work, "right") },
+  };
   try {
     // Left channel = other participants (applicant), right channel = HR microphone.
     await run(t.ffmpeg!, [
@@ -160,14 +163,14 @@ export async function transcribe(recordingId: number) {
     }
     const txt = base + "_transcript.txt";
     fs.writeFileSync(txt, dialogue(readSegments(sides.hr.out + ".json"), readSegments(sides.applicant.out + ".json"), applicantName), "utf8");
-    for (const f of temp) fs.rmSync(f, { force: true });
     db.prepare("UPDATE recordings SET status='done', transcript_path=? WHERE id=?").run(txt, recordingId);
     broadcast("transcribe:progress", { recordingId, status: "done", transcript: txt });
     return txt;
   } catch (e) {
-    for (const f of temp) fs.rmSync(f, { force: true });
     db.prepare("UPDATE recordings SET status='error' WHERE id=?").run(recordingId);
     broadcast("transcribe:progress", { recordingId, status: "error", error: String(e) });
     throw e;
+  } finally {
+    fs.rmSync(work, { recursive: true, force: true });
   }
 }
