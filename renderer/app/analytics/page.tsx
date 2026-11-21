@@ -21,11 +21,13 @@ const CHART = "#c9963a";
 const AXIS = { stroke: "#8b98b8", fontSize: 12 };
 const TOOLTIP = { contentStyle: { background: "#16213a", border: "1px solid #24304d", borderRadius: 6 }, labelStyle: { color: "#e6eaf5" } };
 
+const endToday = () => `${new Date().toISOString().slice(0, 10)} 23:59:59`;
+
 const RANGES: Record<string, () => [string | undefined, string | undefined]> = {
   "All time": () => [undefined, undefined],
-  "This month": () => { const d = new Date(); return [new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10), undefined]; },
-  "Last 3 months": () => { const d = new Date(); d.setMonth(d.getMonth() - 3); return [d.toISOString().slice(0, 10), undefined]; },
-  "This year": () => [`${new Date().getFullYear()}-01-01`, undefined],
+  "This month": () => { const d = new Date(); return [`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`, endToday()]; },
+  "Last 3 months": () => { const d = new Date(); d.setMonth(d.getMonth() - 3); return [d.toISOString().slice(0, 10), endToday()]; },
+  "This year": () => [`${new Date().getFullYear()}-01-01`, endToday()],
 };
 
 function Kpi({ title, value, sub }: { title: string; value: number; sub: string }) {

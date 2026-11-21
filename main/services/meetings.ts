@@ -23,6 +23,7 @@ function normalize(raw: string) {
 
 export function openMeeting(win: BrowserWindow, url: string, bounds: Bounds) {
   closeMeeting(win);
+  const target = normalize(url);
   view = new WebContentsView({ webPreferences: { partition: "persist:meetings" } });
   const wc = view.webContents;
   wc.setZoomFactor(MEETING_ZOOM);
@@ -46,7 +47,7 @@ export function openMeeting(win: BrowserWindow, url: string, bounds: Bounds) {
   wc.setUserAgent(wc.getUserAgent().replace(/\s?Electron\/\S+/, "").replace(/\s?desktop-ats\/\S+/i, ""));
   win.contentView.addChildView(view);
   setMeetingBounds(bounds);
-  wc.loadURL(normalize(url));
+  wc.loadURL(target);
 }
 
 export function setMeetingBounds(b: Bounds) {

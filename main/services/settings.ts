@@ -2,14 +2,27 @@ import { safeStorage } from "electron";
 import { getDb } from "../db";
 
 const SECRET_KEYS = new Set(["mail.password"]);
+const ENCRYPTED_PREFIX = "enc:";
 
 export type Settings = Record<string, string>;
+
+const decryptValue = (value: string) => {
+  try { return safeStorage.decryptString(Buffer.from(value, "base64")); } catch { return ""; }
+};
 
 export function getSetting(key: string): string {
   const row = getDb().prepare("SELECT value FROM settings WHERE key=?").get(key) as { value: string } | undefined;
   if (!row) return "";
-  if (SECRET_KEYS.has(key) && row.value && safeStorage.isEncryptionAvailable()) {
-    try { return safeStorage.decryptString(Buffer.from(row.value, "base64")); } catch { return ""; }
+  if (!SECRET_KEYS.has(key) || !row.value) return row.value;
+  if (row.value.startsWith(ENCRYPTED_PREFIX)) {
+    return safeStorage.isEncryptionAvailable() ? decryptValue(row.value.slice(ENCRYPTED_PREFIX.length)) : "";
+  }
+  if (safeStorage.isEncryptionAvailable()) {
+    const decoded = decryptValue(row.value);
+    if (decoded) {
+      getDb().prepare("UPDATE settings SET value=? WHERE key=?").run(ENCRYPTED_PREFIX + row.value, key);
+      return decoded;
+    }
   }
   return row.value;
 }
@@ -17,7 +30,7 @@ export function getSetting(key: string): string {
 export function setSetting(key: string, value: string) {
   let v = value;
   if (SECRET_KEYS.has(key) && value && safeStorage.isEncryptionAvailable()) {
-    v = safeStorage.encryptString(value).toString("base64");
+    v = ENCRYPTED_PREFIX + safeStorage.encryptString(value).toString("base64");
   }
   getDb().prepare("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(key, v);
 }

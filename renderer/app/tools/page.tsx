@@ -5,6 +5,16 @@ import { Circle, FileText, FileVideo, Folder, PhoneOff, Square, Video } from "lu
 import { call, inElectron, on, useIsElectron, type Applicant, type FileNode } from "@/lib/ats";
 import { Button, Card, cx, Empty, ErrorText, Input, Select } from "@/components/ui";
 
+async function recordedChannelCount(buffer: ArrayBuffer) {
+  const ctx = new AudioContext();
+  try {
+    const audio = await ctx.decodeAudioData(buffer.slice(0));
+    return audio.numberOfChannels;
+  } finally {
+    await ctx.close();
+  }
+}
+
 export default function ToolsPage() {
   return (
     <Suspense>
@@ -179,6 +189,13 @@ function InterviewRoom() {
       rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
       rec.onstop = async () => {
         const buf = await new Blob(chunks, { type: "audio/webm" }).arrayBuffer();
+        let channels = 0;
+        try { channels = await recordedChannelCount(buf); } catch { channels = 0; }
+        if (channels < 2) {
+          setError("Stereo audio was not captured. Check your microphone/system audio setup and try again.");
+          setStatus("Recording discarded: stereo audio was not captured.");
+          return;
+        }
         const saved = await call<{ id: number }>("recording:save", aid, buf);
         setStatus("Saved recording. Transcribing…");
         loadFiles();

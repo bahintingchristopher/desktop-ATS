@@ -8,7 +8,7 @@ export const STAGES = ["Applied", "Screened", "For Interview", "Interviewed", "O
 export function listApplicants() {
   return getDb().prepare(`SELECT a.*,
       (SELECT count(*) FROM emails e WHERE e.applicant_id=a.id AND e.is_read=0 AND e.deleted=0) unread,
-      (SELECT min(start) FROM interviews i WHERE i.applicant_id=a.id AND i.start>=datetime('now')) next_interview
+      (SELECT i.start FROM interviews i WHERE i.applicant_id=a.id AND datetime(i.start)>=datetime('now') ORDER BY datetime(i.start) LIMIT 1) next_interview
     FROM applicants a ORDER BY a.updated_at DESC`).all();
 }
 
@@ -17,7 +17,7 @@ export function getApplicant(id: number) {
   return {
     applicant: db.prepare("SELECT * FROM applicants WHERE id=?").get(id),
     emails: db.prepare("SELECT * FROM emails WHERE applicant_id=? ORDER BY date DESC").all(id),
-    interviews: db.prepare("SELECT * FROM interviews WHERE applicant_id=? ORDER BY start DESC").all(id),
+    interviews: db.prepare("SELECT * FROM interviews WHERE applicant_id=? ORDER BY datetime(start) DESC").all(id),
     recordings: db.prepare("SELECT * FROM recordings WHERE applicant_id=? ORDER BY created_at DESC").all(id),
   };
 }
@@ -90,7 +90,7 @@ export type InterviewInput = { id?: number; applicant_id: number; title: string;
 export function listInterviews(from?: string, to?: string) {
   return getDb().prepare(`SELECT i.*, a.name applicant_name, a.email applicant_email FROM interviews i
     JOIN applicants a ON a.id=i.applicant_id
-    WHERE (? IS NULL OR i.start>=?) AND (? IS NULL OR i.start<?) ORDER BY i.start`).all(from ?? null, from ?? null, to ?? null, to ?? null);
+    WHERE (? IS NULL OR datetime(i.start)>=datetime(?)) AND (? IS NULL OR datetime(i.start)<datetime(?)) ORDER BY datetime(i.start)`).all(from ?? null, from ?? null, to ?? null, to ?? null);
 }
 
 export function saveInterview(i: InterviewInput) {
@@ -137,14 +137,14 @@ export function analytics(from?: string, to?: string) {
   const one = (sql: string, ...p: (string | number)[]) => (db.prepare(sql).get(...p) as { c: number }).c;
   const reached = (stage: string) =>
     one(`SELECT count(DISTINCT h.applicant_id) c FROM stage_history h JOIN applicants a ON a.id=h.applicant_id
-         WHERE h.stage=? AND a.created_at BETWEEN ? AND ?`, stage, f, t);
+         WHERE h.stage=? AND h.at BETWEEN ? AND ?`, stage, f, t);
   return {
     totals: {
       applicants: one("SELECT count(*) c FROM applicants WHERE created_at BETWEEN ? AND ?", f, t),
-      active: one("SELECT count(*) c FROM applicants WHERE stage NOT IN ('Hired','Rejected')"),
-      interviewsNext7: one("SELECT count(*) c FROM interviews WHERE start BETWEEN datetime('now') AND datetime('now','+7 days')"),
-      interviews: one("SELECT count(*) c FROM interviews WHERE start BETWEEN ? AND ?", f, t),
-      offered: one("SELECT count(*) c FROM applicants WHERE stage='Offered'"),
+      active: one("SELECT count(*) c FROM applicants WHERE stage NOT IN ('Hired','Rejected') AND created_at BETWEEN ? AND ?", f, t),
+      interviewsNext7: one("SELECT count(*) c FROM interviews WHERE datetime(start) BETWEEN datetime('now') AND datetime('now','+7 days')"),
+      interviews: one("SELECT count(*) c FROM interviews WHERE datetime(start) BETWEEN datetime(?) AND datetime(?)", f, t),
+      offered: one("SELECT count(*) c FROM applicants WHERE stage='Offered' AND created_at BETWEEN ? AND ?", f, t),
       // Only applicants who still exist AND are still Hired, counted once, by when they were (last) moved to Hired.
       hiredThisMonth: one(`SELECT count(*) c FROM applicants a WHERE a.stage='Hired' AND
         (SELECT max(h.at) FROM stage_history h WHERE h.applicant_id=a.id AND h.stage='Hired') >= date('now','start of month')`),
@@ -155,6 +155,6 @@ export function analytics(from?: string, to?: string) {
     monthly: db.prepare(`SELECT strftime('%Y-%m',created_at) month, count(*) count FROM applicants
       WHERE created_at>=date('now','start of month','-11 months') GROUP BY 1 ORDER BY 1`).all(),
     funnel: ["Applied", "Screened", "For Interview", "Interviewed", "Offered", "Hired", "Rejected"].map((s) => ({ stage: s, count: reached(s) })),
-    byStage: db.prepare("SELECT stage, count(*) count FROM applicants GROUP BY stage").all(),
+    byStage: db.prepare("SELECT stage, count(*) count FROM applicants WHERE created_at BETWEEN ? AND ? GROUP BY stage").all(f, t),
   };
 }

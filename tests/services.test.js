@@ -18,13 +18,22 @@ for (const file of ["ffmpeg.exe", "whisper-cli.exe", path.join("models", "ggml-l
   fs.writeFileSync(path.join(bundledResources, file), "test");
 }
 
+let encryptionAvailable = false;
 const electronMock = {
   app: {
     getPath: (name) => (name === "userData" ? userData : name === "documents" ? temp : path.join(temp, name)),
     getAppPath: () => temp,
     isPackaged: false,
   },
-  safeStorage: { isEncryptionAvailable: () => false },
+  safeStorage: {
+    isEncryptionAvailable: () => encryptionAvailable,
+    encryptString: (value) => Buffer.from(`cipher:${value}`),
+    decryptString: (buffer) => {
+      const value = buffer.toString();
+      if (!value.startsWith("cipher:")) throw new Error("invalid ciphertext");
+      return value.slice(7);
+    },
+  },
   shell: {
     openPath: async (p) => { shellCalls.push(["open", p]); return ""; },
     showItemInFolder: (p) => shellCalls.push(["show", p]),
@@ -93,6 +102,24 @@ test("settings and mail config", () => {
   assert.equal(config.imapHost, "imap.gmail.com");
   assert.equal(config.smtpHost, "smtp.gmail.com");
   assert.equal(config.displayName, "hr@gmail.com");
+
+  encryptionAvailable = true;
+  settings.setSetting("mail.password", "encrypted-secret");
+  assert.equal(settings.getSetting("mail.password"), "encrypted-secret");
+  const stored = getDb().prepare("SELECT value FROM settings WHERE key='mail.password'").get().value;
+  assert.match(stored, /^enc:/);
+  encryptionAvailable = false;
+  assert.equal(settings.getSetting("mail.password"), "");
+  assert.equal(settings.getAllSettings()["mail.password"], "");
+  encryptionAvailable = true;
+  assert.equal(settings.getSetting("mail.password"), "encrypted-secret");
+
+  encryptionAvailable = false;
+  settings.setSetting("mail.password", Buffer.from("cipher:legacy").toString("base64"));
+  encryptionAvailable = true;
+  assert.equal(settings.getSetting("mail.password"), "legacy");
+  encryptionAvailable = false;
+  settings.setSetting("mail.password", "abc def");
 });
 
 test("applicants, interviews, and analytics", () => {
@@ -136,6 +163,18 @@ test("applicants, interviews, and analytics", () => {
   assert.ok(upcoming.findIndex((i) => i.id === soonerId) < upcoming.findIndex((i) => i.id === interviewId));
   assert.ok(!upcoming.some((i) => i.id === pastId));
 
+  const isoStart = "2028-01-01T10:00:00Z";
+  const isoId = data.saveInterview({
+    applicant_id: id,
+    title: "ISO Interview",
+    start: isoStart,
+    end: "2028-01-01T10:45:00Z",
+    platform: "Google Meet",
+  });
+  assert.ok(data.listInterviews("2028-01-01", "2028-01-02").some((i) => i.id === isoId));
+  assert.equal(data.listApplicants().find((a) => a.id === id).next_interview, isoStart);
+  data.deleteInterview(isoId);
+
   data.saveInterview({
     id: soonerId,
     applicant_id: id,
@@ -160,12 +199,54 @@ test("applicants, interviews, and analytics", () => {
   assert.match(invite, /ORGANIZER:mailto:hr@gmail\.com/);
   assert.match(invite, /ATTENDEE;RSVP=TRUE:mailto:jane@example\.com/);
 
+  const next7Before = data.analytics().totals.interviewsNext7;
+  const soonStart = new Date(Date.now() + 2 * 86_400_000).toISOString();
+  const soonId = data.saveInterview({
+    applicant_id: id,
+    title: "Soon ISO Interview",
+    start: soonStart,
+    end: new Date(Date.now() + 2 * 86_400_000 + 1_800_000).toISOString(),
+    platform: "Google Meet",
+  });
+  assert.equal(data.analytics().totals.interviewsNext7, next7Before + 1);
+  data.deleteInterview(soonId);
+
   const stats = data.analytics("2000-01-01", "2100-01-01");
   assert.ok(stats.totals.applicants >= 1);
   assert.ok(stats.funnel.some((f) => f.stage === "Screened"));
   assert.ok(stats.funnel.some((f) => f.stage === "For Interview"));
   assert.ok(stats.funnel.some((f) => f.stage === "Rejected"));
   assert.ok(Array.isArray(stats.byStage));
+
+  const analyticsIsoId = data.saveInterview({
+    applicant_id: id,
+    title: "Analytics ISO Interview",
+    start: "2028-01-01T10:00:00Z",
+    end: "2028-01-01T10:30:00Z",
+    platform: "Google Meet",
+  });
+  assert.equal(data.analytics("2028-01-01", "2028-01-02").totals.interviews, 1);
+  data.deleteInterview(analyticsIsoId);
+
+  const range = ["2000-01-01", "2100-01-01 23:59:59"];
+  const beforeRange = data.analytics(...range);
+  const oldId = data.saveApplicant({ name: "Old Range", email: `old-${Date.now()}@example.com`, stage: "Offered" });
+  getDb().prepare("UPDATE applicants SET created_at='1990-01-01 00:00:00', updated_at='1990-01-01 00:00:00' WHERE id=?").run(oldId);
+  getDb().prepare("UPDATE stage_history SET at='1990-01-01 00:00:00' WHERE applicant_id=?").run(oldId);
+  const afterRange = data.analytics(...range);
+  assert.equal(afterRange.totals.applicants, beforeRange.totals.applicants);
+  assert.equal(afterRange.totals.active, beforeRange.totals.active);
+  assert.equal(afterRange.totals.offered, beforeRange.totals.offered);
+  assert.deepEqual(afterRange.byStage, beforeRange.byStage);
+  assert.deepEqual(afterRange.funnel, beforeRange.funnel);
+
+  const movedId = data.saveApplicant({ name: "Moved Stage", email: `moved-${Date.now()}@example.com` });
+  data.setStage(movedId, "Screened");
+  getDb().prepare("UPDATE stage_history SET at='1990-01-01 00:00:00' WHERE applicant_id=? AND stage='Screened'").run(movedId);
+  const beforeMoved = data.analytics(...range).funnel.find((f) => f.stage === "Screened").count;
+  getDb().prepare("UPDATE stage_history SET at=datetime('now') WHERE applicant_id=? AND stage='Screened'").run(movedId);
+  const afterMoved = data.analytics(...range).funnel.find((f) => f.stage === "Screened").count;
+  assert.equal(afterMoved, beforeMoved + 1);
 });
 
 test("emails", () => {
@@ -363,6 +444,7 @@ test("meetings", async () => {
   meetings.closeMeeting(win);
 
   await assert.rejects(async () => meetings.openMeeting(win, "https://example.com", bounds), /Only Google Meet and Zoom/);
+  assert.equal(win.contentView.views.length, 0);
   meetings.closeMeeting(win);
 });
 
