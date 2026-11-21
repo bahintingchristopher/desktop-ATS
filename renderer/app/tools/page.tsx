@@ -23,6 +23,7 @@ function InterviewRoom() {
   const [inCall, setInCall] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const autoJoinedRef = useRef(false);
 
   const syncMeetingBounds = useCallback(() => {
     const el = stageRef.current;
@@ -111,7 +112,7 @@ function InterviewRoom() {
     return () => clearInterval(t);
   }, [recording]);
 
-  const join = async () => {
+  const join = useCallback(async () => {
     setError(null);
     const url = link.trim() || (platform === "meet" ? "https://meet.google.com/" : "https://app.zoom.us/wc/home");
     try {
@@ -124,7 +125,14 @@ function InterviewRoom() {
       setInCall(false);
       setError((e as Error).message);
     }
-  };
+  }, [link, platform, syncMeetingBounds]);
+
+  useEffect(() => {
+    if (autoJoinedRef.current || !electron || !aid || !link) return;
+    if (params.get("autojoin") !== "1") return;
+    autoJoinedRef.current = true;
+    void join();
+  }, [aid, electron, join, link, params]);
 
   const leave = async () => {
     if (recording) await stopRecording();

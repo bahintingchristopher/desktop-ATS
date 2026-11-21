@@ -114,7 +114,30 @@ test("applicants, interviews, and analytics", () => {
   });
   assert.ok(interviewId > 0);
   assert.ok(data.listInterviews("2030-01-01", "2030-01-02").some((i) => i.id === interviewId));
+
+  const soonerId = data.saveInterview({
+    applicant_id: id,
+    title: "Screening Call",
+    start: "2029-01-01 10:00:00",
+    end: "2029-01-01 10:30:00",
+    platform: "Google Meet",
+    link: "https://meet.google.com/soon",
+  });
+  const pastId = data.saveInterview({
+    applicant_id: id,
+    title: "Old Interview",
+    start: "2020-01-01 10:00:00",
+    end: "2020-01-01 11:00:00",
+    platform: "Google Meet",
+    link: "https://meet.google.com/old",
+  });
+  const upcoming = data.listInterviews("2026-01-01");
+  assert.ok(upcoming.findIndex((i) => i.id === soonerId) < upcoming.findIndex((i) => i.id === interviewId));
+  assert.ok(!upcoming.some((i) => i.id === pastId));
+
   data.deleteInterview(interviewId);
+  data.deleteInterview(soonerId);
+  data.deleteInterview(pastId);
   assert.ok(!data.listInterviews("2030-01-01", "2030-01-02").some((i) => i.id === interviewId));
 
   const invite = data.buildIcs({ id: interviewId, title: "Interview", start: "2030-01-01T10:00:00Z", end: "2030-01-01T11:00:00Z", attendee: "jane@example.com" });

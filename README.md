@@ -6,10 +6,11 @@ An applicant tracking system for Windows, built with Electron + Next.js. All dat
 |---|---|
 | 1. Mail | Inbox/Sent for your email account. Reply with templates (Acknowledge, Invitation, Offer, Rejection) and create applicants from incoming emails. Attachments are saved to the applicant's `resume/` folder. |
 | 2. Applicants | Pipeline stages (Applied → Screened → Interviewed → Offered → Hired/Rejected), applicant details, and a **Calendar** tab. Scheduling an interview emails the applicant an invite with a `.ics` calendar attachment. |
-| 3. Tools | Interview Room. Google Meet or Zoom (web client) runs inside the app. **Start Recording** captures your mic plus the call's audio. When you stop, the recording is saved and transcribed automatically. |
-| 4. Analytics | KPIs (active applicants, interviews in the next 7 days, offers, hires, rejections), applicant sources, applications per month, and the pipeline funnel. |
-| 5. Settings | Your email and **app password**, data folder, signature and Whisper model. |
-| 6. Folder | `Documents\MyATS_Data\Applicants\<Name>_<id>\` with `interviews/`, `resume/` and `emails/` subfolders. Play call audio, and the matching transcript line is highlighted. Click a line to jump to that point. |
+| 3. Appointment | Today and upcoming scheduled Meet/Zoom interviews in a table: applicant, date, time and link. Clicking a link opens Tools and starts the embedded call for that applicant. |
+| 4. Tools | Interview Room. Google Meet or Zoom (web client) runs inside the app. **Start Recording** captures your mic plus the call's audio. When you stop, the recording is saved and transcribed automatically. |
+| 5. Analytics | KPIs (active applicants, interviews in the next 7 days, offers, hires, rejections), applicant sources, applications per month, and the pipeline funnel. |
+| 6. Settings | Your email and **app password**, data folder, signature and Whisper model. |
+| 7. Folder | `Documents\MyATS_Data\Applicants\<Name>_<id>\` with `interviews/`, `resume/` and `emails/` subfolders. Play call audio, and the matching transcript line is highlighted. Click a line to jump to that point. |
 
 ## Setup
 

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, CircleHelp, Folder, Mail, Settings, Users, Video } from "lucide-react";
+import { BarChart3, CalendarDays, CircleHelp, Folder, Mail, Settings, Users, Video } from "lucide-react";
 import { useEffect, useState } from "react";
 import { call, inElectron, on, useIsElectron } from "@/lib/ats";
 import { cx } from "./ui";
@@ -9,6 +9,7 @@ import { cx } from "./ui";
 const NAV = [
   { href: "/mail/", label: "Mail", icon: Mail },
   { href: "/applicants/", label: "Applicants", icon: Users },
+  { href: "/appointment/", label: "Appointment", icon: CalendarDays },
   { href: "/tools/", label: "Tools", icon: Video, hint: "Zoom · Meet" },
   { href: "/analytics/", label: "Analytics", icon: BarChart3 },
   { href: "/settings/", label: "Settings", icon: Settings },

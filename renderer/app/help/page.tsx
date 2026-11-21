@@ -1,7 +1,7 @@
 "use client";
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { BarChart3, ChevronDown, Folder, KeyRound, LifeBuoy, Mail, Rocket, Settings, Sparkles, Users, Video } from "lucide-react";
+import { BarChart3, CalendarDays, ChevronDown, Folder, KeyRound, LifeBuoy, Mail, Rocket, Settings, Sparkles, Users, Video } from "lucide-react";
 import { PageHeader, cx } from "@/components/ui";
 
 type Section = { id: string; icon: typeof Mail; title: string; body: ReactNode };
@@ -120,9 +120,25 @@ const SECTIONS: Section[] = [
     ),
   },
   {
+    id: "appointment",
+    icon: CalendarDays,
+    title: "3. Appointment: today's and upcoming video calls",
+    body: (
+      <>
+        <Steps items={[
+          <>Schedule an interview from <b>Applicants → Schedule</b>, or from an applicant&apos;s detail card.</>,
+          <>Open <Link href="/appointment/" className="text-accent underline">Appointment</Link> to see today and future Meet/Zoom interviews.</>,
+          <>Rows are ordered today, tomorrow, the next day, then the following weeks.</>,
+          <>Click a row&apos;s <b>Link</b> to open Tools and automatically start the embedded call for that applicant.</>,
+        ]} />
+        <Tip>The meeting link shown here is the one saved when the interview was scheduled. If it was left blank, Tools opens the Meet/Zoom home page.</Tip>
+      </>
+    ),
+  },
+  {
     id: "tools",
     icon: Video,
-    title: "3. Tools: run the interview, record and transcribe",
+    title: "4. Tools: run the interview, record and transcribe",
     body: (
       <>
         <Steps items={[
@@ -139,7 +155,7 @@ const SECTIONS: Section[] = [
   {
     id: "analytics",
     icon: BarChart3,
-    title: "4. Analytics: hiring numbers at a glance",
+    title: "5. Analytics: hiring numbers at a glance",
     body: (
       <p className="text-sm">
         See active applicants, interviews in the next 7 days, offers, hires and rejections, plus where applicants come from
@@ -150,7 +166,7 @@ const SECTIONS: Section[] = [
   {
     id: "settings",
     icon: Settings,
-    title: "5. Settings",
+    title: "6. Settings",
     body: (
       <p className="text-sm">
         Your email and app password (click the 👁 eye to show it), display name, email signature, and where applicant files are saved.
@@ -161,7 +177,7 @@ const SECTIONS: Section[] = [
   {
     id: "folder",
     icon: Folder,
-    title: "6. Folder: recordings, transcripts and resumes",
+    title: "7. Folder: recordings, transcripts and resumes",
     body: (
       <Steps items={[
         <>Each applicant has a folder with <b>interviews</b> (call video recording + transcript), <b>resume</b> and <b>emails</b>.</>,
