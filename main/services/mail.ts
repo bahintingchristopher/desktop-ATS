@@ -190,7 +190,11 @@ export async function sendMail(input: SendInput) {
     .run(info.messageId, "SENT", applicantId, c.email, c.displayName, input.to,
       input.subject, text, new Date().toISOString(), input.inReplyTo ?? null);
   const stage = stageFromSentMail(input.template, input.subject, input.body, !!input.inReplyTo);
-  if (applicantId && stage) setStage(applicantId, stage);
+  const current = applicantId
+    ? (getDb().prepare("SELECT stage FROM applicants WHERE id=?").get(applicantId) as { stage: string } | undefined)?.stage
+    : undefined;
+  // "Applied" from a reply only confirms new applicants; never move someone further along back to Applied.
+  if (applicantId && stage && !(stage === "Applied" && current && current !== "Applied")) setStage(applicantId, stage);
   notify();
   return { messageId: info.messageId, applicantId, stage, createdApplicant };
 }

@@ -26,13 +26,32 @@ export function openMeeting(win: BrowserWindow, url: string, bounds: Bounds) {
   const target = normalize(url);
   view = new WebContentsView({ webPreferences: { partition: "persist:meetings" } });
   const wc = view.webContents;
-  wc.setZoomFactor(MEETING_ZOOM);
-  wc.on("did-finish-load", () => wc.setZoomFactor(MEETING_ZOOM));
+  // Keep the call at a fixed 70% so it fits the Tools stage: re-apply after every navigation
+  // (zoom is per-origin) and undo Ctrl+wheel / Ctrl+± / pinch zoom changes.
+  const lockZoom = () => {
+    if (wc.isDestroyed?.()) return;
+    wc.setZoomFactor(MEETING_ZOOM);
+    wc.setVisualZoomLevelLimits?.(1, 1)?.catch(() => undefined);
+  };
+  lockZoom();
+  wc.on("did-finish-load", lockZoom);
+  wc.on("did-navigate", lockZoom);
+  wc.on("did-navigate-in-page", lockZoom);
+  wc.on("zoom-changed", lockZoom);
+  wc.on("before-input-event", (event, input) => {
+    if ((input.control || input.meta) && ["+", "=", "-", "_", "0"].includes(input.key)) event.preventDefault();
+  });
+  // Stay inside the ATS: never hand the call off to the Zoom/Meet desktop apps.
+  const isAppLaunch = (url: string) => /^(zoommtg|zoomus|zoomphonecall):/i.test(url);
+  wc.on("will-navigate", (event, url) => {
+    if (isAppLaunch(url)) event.preventDefault();
+  });
   wc.session.setPermissionRequestHandler((_wc, perm, cb) =>
     cb(["media", "display-capture", "notifications", "clipboard-sanitized-write"].includes(perm)),
   );
   wc.setWindowOpenHandler(({ url }) => {
     try {
+      if (isAppLaunch(url)) return { action: "deny" };
       if (ALLOWED.test(new URL(url).hostname)) wc.loadURL(url);
       else shell.openExternal(url);
     } catch {

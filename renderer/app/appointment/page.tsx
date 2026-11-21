@@ -32,7 +32,7 @@ export default function AppointmentPage() {
       .then((list) => {
         setRows(
           list
-            .filter((i) => (i.status || "Scheduled") === "Scheduled" && videoPlatform(i.platform))
+            .filter((i) => (i.status || "Scheduled") === "Scheduled" && videoPlatform(i.platform) && new Date(i.end || i.start).getTime() >= Date.now())
             .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()),
         );
         setError(null);

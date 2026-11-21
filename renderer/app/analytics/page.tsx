@@ -21,13 +21,15 @@ const CHART = "#c9963a";
 const AXIS = { stroke: "#8b98b8", fontSize: 12 };
 const TOOLTIP = { contentStyle: { background: "#16213a", border: "1px solid #24304d", borderRadius: 6 }, labelStyle: { color: "#e6eaf5" } };
 
-const endToday = () => `${new Date().toISOString().slice(0, 10)} 23:59:59`;
+// DB timestamps are UTC ("YYYY-MM-DD HH:MM:SS"); convert local day boundaries to that format.
+const toDb = (d: Date) => d.toISOString().slice(0, 19).replace("T", " ");
+const endToday = () => { const d = new Date(); d.setHours(23, 59, 59, 0); return toDb(d); };
 
 const RANGES: Record<string, () => [string | undefined, string | undefined]> = {
   "All time": () => [undefined, undefined],
-  "This month": () => { const d = new Date(); return [`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`, endToday()]; },
-  "Last 3 months": () => { const d = new Date(); d.setMonth(d.getMonth() - 3); return [d.toISOString().slice(0, 10), endToday()]; },
-  "This year": () => [`${new Date().getFullYear()}-01-01`, endToday()],
+  "This month": () => { const d = new Date(); return [toDb(new Date(d.getFullYear(), d.getMonth(), 1)), endToday()]; },
+  "Last 3 months": () => { const d = new Date(); d.setMonth(d.getMonth() - 3); d.setHours(0, 0, 0, 0); return [toDb(d), endToday()]; },
+  "This year": () => [toDb(new Date(new Date().getFullYear(), 0, 1)), endToday()],
 };
 
 function Kpi({ title, value, sub }: { title: string; value: number; sub: string }) {

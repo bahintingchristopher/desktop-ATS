@@ -5,16 +5,6 @@ import { Circle, FileText, FileVideo, Folder, PhoneOff, Square, Video } from "lu
 import { call, inElectron, on, useIsElectron, type Applicant, type FileNode } from "@/lib/ats";
 import { Button, Card, cx, Empty, ErrorText, Input, Select } from "@/components/ui";
 
-async function recordedChannelCount(buffer: ArrayBuffer) {
-  const ctx = new AudioContext();
-  try {
-    const audio = await ctx.decodeAudioData(buffer.slice(0));
-    return audio.numberOfChannels;
-  } finally {
-    await ctx.close();
-  }
-}
-
 export default function ToolsPage() {
   return (
     <Suspense>
@@ -141,6 +131,9 @@ function InterviewRoom() {
     if (autoJoinedRef.current || !electron || !aid || !link) return;
     if (params.get("autojoin") !== "1") return;
     autoJoinedRef.current = true;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("autojoin");
+    window.history.replaceState(window.history.state, "", url.toString());
     void join();
   }, [aid, electron, join, link, params]);
 
@@ -188,18 +181,16 @@ function InterviewRoom() {
       const chunks: Blob[] = [];
       rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
       rec.onstop = async () => {
-        const buf = await new Blob(chunks, { type: "audio/webm" }).arrayBuffer();
-        let channels = 0;
-        try { channels = await recordedChannelCount(buf); } catch { channels = 0; }
-        if (channels < 2) {
-          setError("Stereo audio was not captured. Check your microphone/system audio setup and try again.");
-          setStatus("Recording discarded: stereo audio was not captured.");
-          return;
+        try {
+          const buf = await new Blob(chunks, { type: "audio/webm" }).arrayBuffer();
+          const saved = await call<{ id: number }>("recording:save", aid, buf);
+          setStatus("Saved recording. Transcribing…");
+          loadFiles();
+          call("transcribe:run", saved.id).catch((e) => setStatus(`Transcription failed: ${e.message}`));
+        } catch (e) {
+          setError(`Could not save recording: ${(e as Error).message}`);
+          setStatus("Recording was not saved.");
         }
-        const saved = await call<{ id: number }>("recording:save", aid, buf);
-        setStatus("Saved recording. Transcribing…");
-        loadFiles();
-        call("transcribe:run", saved.id).catch((e) => setStatus(`Transcription failed: ${e.message}`));
       };
       rec.start(1000);
       recRef.current = { rec, streams: [display, mic], ctx };
