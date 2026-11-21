@@ -9,11 +9,12 @@ type Data = {
   sources: { name: string; value: number }[];
   monthly: { month: string; count: number }[];
   funnel: { stage: string; count: number }[];
+  byStage: { stage: string; count: number }[];
 };
 
 const EMPTY: Data = {
   totals: { applicants: 0, active: 0, interviewsNext7: 0, interviews: 0, offered: 0, hiredThisMonth: 0, hired: 0, rejected: 0 },
-  sources: [], monthly: [], funnel: [],
+  sources: [], monthly: [], funnel: [], byStage: [],
 };
 
 const CHART = "#c9963a";
@@ -29,10 +30,10 @@ const RANGES: Record<string, () => [string | undefined, string | undefined]> = {
 
 function Kpi({ title, value, sub }: { title: string; value: number; sub: string }) {
   return (
-    <div className="relative overflow-hidden rounded-lg border border-line bg-panel p-4 text-center">
-      <div className="text-sm text-muted">{title}</div>
-      <div className="my-1 text-4xl font-semibold">{value}</div>
-      <div className="text-xs text-muted">{sub}</div>
+    <div className="relative overflow-hidden rounded-lg border border-line bg-panel p-3 text-center">
+      <div className="text-xs text-muted">{title}</div>
+      <div className="my-1 text-3xl font-semibold">{value}</div>
+      <div className="text-[11px] text-muted">{sub}</div>
     </div>
   );
 }
@@ -48,6 +49,7 @@ export default function AnalyticsPage() {
   }, [range]);
 
   const t = d.totals;
+  const stageCount = (stage: string) => d.byStage.find((s) => s.stage === stage)?.count ?? 0;
   const totalSources = d.sources.reduce((s, x) => s + x.value, 0) || 1;
   const monthly = d.monthly.map((m) => ({ ...m, label: new Date(m.month + "-01").toLocaleDateString(undefined, { month: "short" }) }));
 
@@ -61,13 +63,13 @@ export default function AnalyticsPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr]">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Kpi title="Total Applicants" value={t.applicants} sub={range} />
           <Kpi title="Current Applicants" value={t.active} sub="Active Pipeline" />
-          <Kpi title="Interviews Scheduled" value={t.interviewsNext7} sub="Next 7 Days" />
+          <Kpi title="Screened" value={stageCount("Screened")} sub="Current Stage" />
+          <Kpi title="For Interview" value={stageCount("For Interview")} sub="Awaiting Interview" />
+          <Kpi title="Interviewed" value={stageCount("Interviewed")} sub="Current Stage" />
           <Kpi title="Offers Extended" value={t.offered} sub="Awaiting Response" />
           <Kpi title="Hired Candidates" value={t.hiredThisMonth} sub="This Month" />
-          <Kpi title="Total Applicants" value={t.applicants} sub={range} />
-          <Kpi title="Total Interviews" value={t.interviews} sub={range} />
-          <Kpi title="Total Hired" value={t.hired} sub={range} />
           <Kpi title="Rejected" value={t.rejected} sub={range} />
         </div>
 

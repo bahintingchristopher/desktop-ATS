@@ -154,7 +154,7 @@ export function analytics(from?: string, to?: string) {
     sources: db.prepare("SELECT coalesce(source,'Other') name, count(*) value FROM applicants WHERE created_at BETWEEN ? AND ? GROUP BY 1 ORDER BY 2 DESC").all(f, t),
     monthly: db.prepare(`SELECT strftime('%Y-%m',created_at) month, count(*) count FROM applicants
       WHERE created_at>=date('now','start of month','-11 months') GROUP BY 1 ORDER BY 1`).all(),
-    funnel: ["Applied", "Screened", "For Interview", "Interviewed", "Offered", "Hired"].map((s) => ({ stage: s, count: reached(s) })),
+    funnel: ["Applied", "Screened", "For Interview", "Interviewed", "Offered", "Hired", "Rejected"].map((s) => ({ stage: s, count: reached(s) })),
     byStage: db.prepare("SELECT stage, count(*) count FROM applicants GROUP BY stage").all(),
   };
 }

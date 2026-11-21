@@ -164,6 +164,7 @@ test("applicants, interviews, and analytics", () => {
   assert.ok(stats.totals.applicants >= 1);
   assert.ok(stats.funnel.some((f) => f.stage === "Screened"));
   assert.ok(stats.funnel.some((f) => f.stage === "For Interview"));
+  assert.ok(stats.funnel.some((f) => f.stage === "Rejected"));
   assert.ok(Array.isArray(stats.byStage));
 });
 
@@ -324,7 +325,10 @@ test("sent mail stage detection", () => {
   assert.equal(mail.stageFromSentMail("Rejection", "", ""), "Rejected");
   assert.equal(mail.stageFromSentMail(undefined, "Job offer", "We are pleased to offer you the role"), "Offered");
   assert.equal(mail.stageFromSentMail(undefined, "Update", "We have decided to move forward with other candidates"), "Rejected");
+  assert.equal(mail.stageFromSentMail("Acknowledge", "We received your application", "Thank you", true), "Applied");
+  assert.equal(mail.stageFromSentMail("Invitation", "Interview invitation", "We are pleased to offer you the role", true), "Applied");
   assert.equal(mail.stageFromSentMail("Acknowledge", "We received your application", "Thank you"), null);
+  assert.equal(mail.stageFromSentMail("Invitation", "Interview invitation", "Please join the interview"), null);
 });
 
 test("meetings", async () => {

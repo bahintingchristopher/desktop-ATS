@@ -130,11 +130,14 @@ export function applicantFromReply(source: { from_addr: string; from_name: strin
   return { name, email, position, source: "Email", stage: "Applied" };
 }
 
-export function stageFromSentMail(template: string | undefined, subject: string, body: string): "Offered" | "Rejected" | null {
+export function stageFromSentMail(template: string | undefined, subject: string, body: string, isReply = false): "Applied" | "Offered" | "Rejected" | null {
   const t = (template ?? "").toLowerCase();
   const text = `${subject}\n${body}`.toLowerCase();
-  if (t === "offer" || /\b(job offer|offer letter|offer of employment|we are pleased to offer)\b/.test(text)) return "Offered";
-  if (t === "rejection" || /\b(rejected|not moving forward|move forward with other candidates|other candidates)\b/.test(text)) return "Rejected";
+  if (t === "offer") return "Offered";
+  if (t === "rejection") return "Rejected";
+  if (isReply && (t === "acknowledge" || t === "invitation")) return "Applied";
+  if (/\b(job offer|offer letter|offer of employment|we are pleased to offer)\b/.test(text)) return "Offered";
+  if (/\b(rejected|not moving forward|move forward with other candidates|other candidates)\b/.test(text)) return "Rejected";
   return null;
 }
 
@@ -186,7 +189,7 @@ export async function sendMail(input: SendInput) {
       VALUES (?,?,?,?,?,?,?,?,?,1,?)`)
     .run(info.messageId, "SENT", applicantId, c.email, c.displayName, input.to,
       input.subject, text, new Date().toISOString(), input.inReplyTo ?? null);
-  const stage = stageFromSentMail(input.template, input.subject, input.body);
+  const stage = stageFromSentMail(input.template, input.subject, input.body, !!input.inReplyTo);
   if (applicantId && stage) setStage(applicantId, stage);
   notify();
   return { messageId: info.messageId, applicantId, stage, createdApplicant };
