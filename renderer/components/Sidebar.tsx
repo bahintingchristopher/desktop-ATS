@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { BarChart3, CalendarDays, CircleHelp, Folder, Mail, Settings, Users, Video } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { BarChart3, CalendarDays, CircleHelp, Folder, LogOut, Mail, Settings, Users, Video } from "lucide-react";
 import { useEffect, useState } from "react";
 import { call, inElectron, on, useIsElectron } from "@/lib/ats";
 import { cx } from "./ui";
@@ -19,9 +19,11 @@ const NAV = [
 
 export default function Sidebar() {
   const path = usePathname();
+  const router = useRouter();
   const electron = useIsElectron();
   const [unread, setUnread] = useState(0);
   const [configured, setConfigured] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     if (!inElectron()) return;
@@ -41,6 +43,17 @@ export default function Sidebar() {
       clearInterval(t);
     };
   }, [path]);
+
+  const logout = async () => {
+    if (!inElectron()) return;
+    setLoggingOut(true);
+    try {
+      await call("auth:logout");
+      router.replace("/login/");
+    } catch {
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-sidebar-line bg-sidebar">
@@ -80,6 +93,19 @@ export default function Sidebar() {
         <p className="m-3 rounded-md border border-warn/40 bg-warn/10 p-2 text-xs text-amber-200">
           Browser preview. Run the desktop app (npm run dev at project root) for email, files and meetings.
         </p>
+      )}
+      {electron === true && (
+        <div className="mt-auto border-t border-sidebar-line px-2 py-2">
+          <button
+            type="button"
+            onClick={() => void logout()}
+            disabled={loggingOut}
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-300/80 transition hover:bg-sidebar-active/60 hover:text-white disabled:opacity-50"
+          >
+            <LogOut size={17} />
+            <span>{loggingOut ? "Signing out…" : "Logout"}</span>
+          </button>
+        </div>
       )}
     </aside>
   );

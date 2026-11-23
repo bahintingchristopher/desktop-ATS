@@ -10,6 +10,14 @@ export function getDb() {
   db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL COLLATE NOCASE UNIQUE,
+      password_hash TEXT NOT NULL,
+      reset_hash TEXT,
+      reset_expires_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
     CREATE TABLE IF NOT EXISTS applicants (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL, email TEXT UNIQUE, phone TEXT, position TEXT,
@@ -56,6 +64,26 @@ export function getDb() {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+  const userCols = (db.prepare("PRAGMA table_info(users)").all() as { name: string }[]).map((c) => c.name);
+  if (userCols.includes("recovery_hash")) {
+    db.exec("PRAGMA foreign_keys=OFF");
+    db.exec("DROP TABLE IF EXISTS users_new");
+    db.exec(`
+      CREATE TABLE users_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL COLLATE NOCASE UNIQUE,
+        password_hash TEXT NOT NULL,
+        reset_hash TEXT,
+        reset_expires_at TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      INSERT INTO users_new (id,email,password_hash,reset_hash,reset_expires_at,created_at)
+        SELECT id,email,password_hash,reset_hash,reset_expires_at,created_at FROM users;
+      DROP TABLE users;
+      ALTER TABLE users_new RENAME TO users;
+    `);
+    db.exec("PRAGMA foreign_keys=ON");
+  }
   // Additive migrations for databases created by earlier versions.
   const cols = (db.prepare("PRAGMA table_info(applicants)").all() as { name: string }[]).map((c) => c.name);
   const add = (name: string, def: string) => { if (!cols.includes(name)) db.exec(`ALTER TABLE applicants ADD COLUMN ${name} ${def}`); };

@@ -156,7 +156,7 @@ export async function sendMail(input: SendInput) {
   const text = c.signature ? `${input.body}\n\n${c.signature}` : input.body;
   const info = await smtpTransport().sendMail({
     from: { name: c.displayName, address: c.fromEmail },
-    replyTo: c.email,
+    replyTo: c.fromEmail,
     to: input.to,
     subject: input.subject,
     text,
@@ -198,6 +198,18 @@ export async function sendMail(input: SendInput) {
   if (applicantId && stage && !(stage === "Applied" && current && current !== "Applied")) setStage(applicantId, stage);
   notify();
   return { messageId: info.messageId, applicantId, stage, createdApplicant };
+}
+
+export async function sendResetCode(to: string, code: string) {
+  const c = mailConfig();
+  if (!c.email || !c.password) throw new Error("Email is not set up.");
+  await smtpTransport().sendMail({
+    from: { name: c.displayName, address: c.fromEmail },
+    replyTo: c.fromEmail,
+    to,
+    subject: "Password reset code",
+    text: `Your Desktop ATS password reset code is ${code}. It expires in 10 minutes.`,
+  });
 }
 
 /** Download an email's attachments again (by UID) and save into the applicant's resume folder. */

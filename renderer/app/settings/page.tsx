@@ -120,8 +120,8 @@ export default function SettingsPage() {
                 <Input value={s["mail.displayName"] ?? ""} onChange={set("mail.displayName")} placeholder="HR Team" />
               </Field>
             </div>
-            <Field label="Send-as email (From)" hint="Applicants see this address. Replies go to your email above.">
-              <Input value={s["mail.fromEmail"] ?? "noreply@almallc.net"} onChange={set("mail.fromEmail")} placeholder="noreply@almallc.net" />
+            <Field label="Send-as email (From)" hint="Applicants see this address and replies go here. Defaults to your email above.">
+              <Input value={s["mail.fromEmail"] ?? s["mail.email"] ?? ""} onChange={set("mail.fromEmail")} placeholder="hr@yourcompany.com" />
             </Field>
             <Field label="App password" hint={<>{APP_PASSWORD_HELP[domain] ?? "Use an app password from your email provider (not your normal password)."}{" "}<Link href="/help/" className="text-accent underline">How do I get an app password?</Link></>}>
               <div className="relative">

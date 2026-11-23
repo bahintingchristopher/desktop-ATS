@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { scryptSync } = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -68,6 +69,7 @@ Module._load = function (request, parent, isMain) {
 };
 
 const { getDb } = require("../dist-main/db");
+const auth = require("../dist-main/services/auth");
 const settings = require("../dist-main/services/settings");
 const data = require("../dist-main/services/data");
 const files = require("../dist-main/services/files");
@@ -102,7 +104,7 @@ test("settings and mail config", () => {
   assert.equal(config.imapHost, "imap.gmail.com");
   assert.equal(config.smtpHost, "smtp.gmail.com");
   assert.equal(config.displayName, "hr@gmail.com");
-  assert.equal(config.fromEmail, "noreply@almallc.net");
+  assert.equal(config.fromEmail, "hr@gmail.com");
 
   encryptionAvailable = true;
   settings.setSetting("mail.password", "encrypted-secret");
@@ -121,6 +123,42 @@ test("settings and mail config", () => {
   assert.equal(settings.getSetting("mail.password"), "legacy");
   encryptionAvailable = false;
   settings.setSetting("mail.password", "abc def");
+});
+
+test("local auth", () => {
+  assert.deepEqual(auth.status(), { hasAccount: false, authenticated: false, email: null });
+
+  const created = auth.createAccount({ email: " HR@Example.com ", password: "password123" });
+  assert.equal(created.email, "hr@example.com");
+  assert.equal(auth.status().authenticated, true);
+
+  const userCols = getDb().prepare("PRAGMA table_info(users)").all().map((c) => c.name);
+  assert.ok(!userCols.includes("recovery_hash"));
+
+  const row = getDb().prepare("SELECT password_hash FROM users WHERE email=?").get("hr@example.com");
+  assert.match(row.password_hash, /^scrypt\$/);
+  assert.ok(!row.password_hash.includes("password123"));
+
+  assert.throws(() => auth.login({ email: "hr@example.com", password: "wrongpass" }), /Invalid email or password/);
+  auth.logout();
+  assert.equal(auth.isAuthenticated(), false);
+  assert.equal(auth.login({ email: "HR@EXAMPLE.COM", password: "password123" }).email, "hr@example.com");
+  assert.equal(auth.isAuthenticated(), true);
+  assert.throws(() => auth.createAccount({ email: "other@example.com", password: "password123" }), /already exists/);
+
+  const salt = "0123456789abcdef0123456789abcdef";
+  const resetHash = `scrypt$${salt}$${scryptSync("654321", salt, 64).toString("hex")}`;
+  getDb()
+    .prepare("UPDATE users SET reset_hash=?, reset_expires_at=? WHERE email=?")
+    .run(resetHash, new Date(Date.now() + 60_000).toISOString(), "hr@example.com");
+  auth.logout();
+  assert.throws(() => auth.resetWithCode({ email: "hr@example.com", code: "000000", newPassword: "thirdpass1" }), /Invalid or expired reset code/);
+  assert.equal(auth.resetWithCode({ email: "HR@EXAMPLE.COM", code: "654321", newPassword: "thirdpass1" }).email, "hr@example.com");
+  assert.equal(auth.login({ email: "hr@example.com", password: "thirdpass1" }).email, "hr@example.com");
+});
+
+test("auth reset request", async () => {
+  assert.deepEqual(await auth.requestReset("missing@example.com"), { email: "missing@example.com" });
 });
 
 test("applicants, interviews, and analytics", () => {
@@ -197,7 +235,7 @@ test("applicants, interviews, and analytics", () => {
   assert.ok(!data.listInterviews("2030-01-01", "2030-01-02").some((i) => i.id === interviewId));
 
   const invite = data.buildIcs({ id: interviewId, title: "Interview", start: "2030-01-01T10:00:00Z", end: "2030-01-01T11:00:00Z", attendee: "jane@example.com" });
-  assert.match(invite, /ORGANIZER:mailto:noreply@almallc\.net/);
+  assert.match(invite, /ORGANIZER:mailto:hr@gmail\.com/);
   assert.match(invite, /ATTENDEE;RSVP=TRUE:mailto:jane@example\.com/);
 
   const next7Before = data.analytics().totals.interviewsNext7;

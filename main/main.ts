@@ -2,6 +2,7 @@ import { app, BrowserWindow, desktopCapturer, ipcMain, net, protocol, session, s
 import path from "path";
 import { pathToFileURL } from "url";
 import { getDb } from "./db";
+import * as auth from "./services/auth";
 import * as data from "./services/data";
 import * as files from "./services/files";
 import * as mail from "./services/mail";
@@ -35,9 +36,8 @@ function createWindow() {
     shell.openExternal(url);
     return { action: "deny" };
   });
-  // First run: go straight to Settings so HR only has to enter their email.
   const c = mailConfig();
-  const page = c.email && c.password ? "analytics" : "settings";
+  const page = auth.isAuthenticated() ? (c.email && c.password ? "analytics" : "settings") : "login";
   win.loadURL(isDev ? `http://localhost:3000/${page}/` : `app://ats/${page}/`);
 }
 
@@ -55,10 +55,20 @@ function registerAppProtocol() {
 
 type Handler = (...args: any[]) => unknown;
 function handle(channel: string, fn: Handler) {
-  ipcMain.handle(channel, async (_e, ...args) => fn(...args));
+  ipcMain.handle(channel, async (_e, ...args) => {
+    if (!channel.startsWith("auth:") && !auth.isAuthenticated()) throw new Error("Locked. Sign in to continue.");
+    return fn(...args);
+  });
 }
 
 function registerIpc() {
+  handle("auth:status", () => auth.status());
+  handle("auth:login", (input) => auth.login(input));
+  handle("auth:create", (input) => auth.createAccount(input));
+  handle("auth:logout", () => auth.logout());
+  handle("auth:requestReset", (email) => auth.requestReset(email));
+  handle("auth:resetEmail", (input) => auth.resetWithCode(input));
+
   // Settings
   handle("settings:get", () => getAllSettings());
   handle("settings:save", (s) => {
