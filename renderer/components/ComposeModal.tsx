@@ -12,7 +12,7 @@ export const TEMPLATES: Record<string, { subject: string; body: string }> = {
   },
   Invitation: {
     subject: "Interview invitation",
-    body: "Hi {name},\n\nWe would like to invite you to an interview{position}. Please see the calendar invite attached with the date, time and meeting link.\n\nLooking forward to speaking with you.\n\nBest regards,",
+    body: "Hi {name},\n\nWe would like to invite you to an interview{position}. Please see the calendar invite attached with the date, time and meeting link.\n\n{details}\n\nLooking forward to speaking with you.\n\nBest regards,",
   },
   Offer: {
     subject: "Job offer",
@@ -24,8 +24,12 @@ export const TEMPLATES: Record<string, { subject: string; body: string }> = {
   },
 };
 
-export function fillTemplate(tpl: string, name?: string, position?: string) {
-  return tpl.replace(/\{name\}/g, (name || "there").split(" ")[0]).replace(/\{position\}/g, position ? ` for the ${position} position` : "");
+export function fillTemplate(tpl: string, name?: string, position?: string, details = "") {
+  return tpl
+    .replace(/\{name\}/g, (name || "there").split(" ")[0])
+    .replace(/\{position\}/g, position ? ` for the ${position} position` : "")
+    .replace(/\{details\}/g, details)
+    .replace(/\n{3,}/g, "\n\n");
 }
 
 export type ComposeInit = {

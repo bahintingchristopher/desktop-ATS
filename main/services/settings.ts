@@ -65,6 +65,7 @@ export function mailConfig() {
   const p = MAIL_PRESETS[domain];
   return {
     email,
+    fromEmail: getSetting("mail.fromEmail") || "noreply@almallc.net",
     password: getSetting("mail.password"),
     displayName: getSetting("mail.displayName") || email,
     signature: getSetting("mail.signature"),

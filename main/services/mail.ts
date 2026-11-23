@@ -153,9 +153,10 @@ export type SendInput = {
 
 export async function sendMail(input: SendInput) {
   const c = mailConfig();
-  const text = c.signature ? `${input.body}\n\n--\n${c.signature}` : input.body;
+  const text = c.signature ? `${input.body}\n\n${c.signature}` : input.body;
   const info = await smtpTransport().sendMail({
-    from: { name: c.displayName, address: c.email },
+    from: { name: c.displayName, address: c.fromEmail },
+    replyTo: c.email,
     to: input.to,
     subject: input.subject,
     text,
@@ -187,7 +188,7 @@ export async function sendMail(input: SendInput) {
   getDb()
     .prepare(`INSERT OR IGNORE INTO emails (message_id,folder,applicant_id,from_addr,from_name,to_addr,subject,text,date,is_read,in_reply_to)
       VALUES (?,?,?,?,?,?,?,?,?,1,?)`)
-    .run(info.messageId, "SENT", applicantId, c.email, c.displayName, input.to,
+    .run(info.messageId, "SENT", applicantId, c.fromEmail, c.displayName, input.to,
       input.subject, text, new Date().toISOString(), input.inReplyTo ?? null);
   const stage = stageFromSentMail(input.template, input.subject, input.body, !!input.inReplyTo);
   const current = applicantId

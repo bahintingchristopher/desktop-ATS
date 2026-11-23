@@ -118,7 +118,7 @@ const icsEsc = (s: string) => s.replace(/[\\;,]/g, (m) => "\\" + m).replace(/\n/
 
 /** Build an iCalendar invite so the applicant can add the interview to their calendar. */
 export function buildIcs(i: { id?: number; title: string; start: string; end: string; link?: string; attendee: string }) {
-  const org = mailConfig().email;
+  const org = mailConfig().fromEmail;
   return [
     "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Desktop ATS//EN", "METHOD:REQUEST", "BEGIN:VEVENT",
     `UID:${i.id ?? crypto.randomUUID()}@desktop-ats`, `DTSTAMP:${icsDate(new Date().toISOString())}`,

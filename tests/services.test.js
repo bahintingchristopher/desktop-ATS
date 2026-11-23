@@ -102,6 +102,7 @@ test("settings and mail config", () => {
   assert.equal(config.imapHost, "imap.gmail.com");
   assert.equal(config.smtpHost, "smtp.gmail.com");
   assert.equal(config.displayName, "hr@gmail.com");
+  assert.equal(config.fromEmail, "noreply@almallc.net");
 
   encryptionAvailable = true;
   settings.setSetting("mail.password", "encrypted-secret");
@@ -196,7 +197,7 @@ test("applicants, interviews, and analytics", () => {
   assert.ok(!data.listInterviews("2030-01-01", "2030-01-02").some((i) => i.id === interviewId));
 
   const invite = data.buildIcs({ id: interviewId, title: "Interview", start: "2030-01-01T10:00:00Z", end: "2030-01-01T11:00:00Z", attendee: "jane@example.com" });
-  assert.match(invite, /ORGANIZER:mailto:hr@gmail\.com/);
+  assert.match(invite, /ORGANIZER:mailto:noreply@almallc\.net/);
   assert.match(invite, /ATTENDEE;RSVP=TRUE:mailto:jane@example\.com/);
 
   const next7Before = data.analytics().totals.interviewsNext7;

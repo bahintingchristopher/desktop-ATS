@@ -44,13 +44,16 @@ export default function AppointmentEditModal({
         // Same interview id → same calendar UID, so the applicant's calendar entry is updated.
         const ics = await call<string>("interviews:ics", { id: interview.id, title: interview.title, start: s.toISOString(), end: e.toISOString(), link: interview.link, attendee: interview.applicant_email });
         const when = s.toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" });
+        const details = `When: ${when} (${minutes} min)\nWhere: ${interview.platform}${interview.link ? `\nLink: ${interview.link}` : ""}`;
         const body = `Hi ${interview.applicant_name || ""},
 
 Your interview has been rescheduled.
 
-When: ${when} (${minutes} min)
-Where: ${interview.platform}${interview.link ? `
-Link: ${interview.link}` : ""}`;
+${details}
+
+Looking forward to speaking with you.
+
+Best regards,`;
         await call("mail:send", { to: interview.applicant_email, subject: `Rescheduled: ${interview.title}`, body, applicantId: interview.applicant_id, ics });
       }
       onSaved();
