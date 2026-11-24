@@ -23,6 +23,7 @@ npm run dev                 # starts Next.js on :3000 and opens the Electron win
 ### Email
 Settings → enter your email and an **app password** → **Save & test connection**.
 - Gmail: turn on 2-Step Verification, then go to https://myaccount.google.com/apppasswords
+- ALMA (`almallc.net`): uses Google Workspace/Gmail servers; create the app password while signed in to the exact `almallc.net` account
 - Outlook/Hotmail: account.microsoft.com → Security → App passwords
 - Other providers: open "Show server settings" and enter the IMAP/SMTP host and port.
 

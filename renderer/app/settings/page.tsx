@@ -10,6 +10,7 @@ type Tools = { dir: string; ffmpeg: boolean; whisper: boolean; model: boolean; m
 
 const APP_PASSWORD_HELP: Record<string, string> = {
   "gmail.com": "Gmail: turn on 2-Step Verification, then create one at myaccount.google.com/apppasswords",
+  "almallc.net": "ALMA Google Workspace: turn on 2-Step Verification, then create one at myaccount.google.com/apppasswords using your almallc.net account",
   "outlook.com": "Outlook: account.microsoft.com → Security → Advanced security options → App passwords",
   "hotmail.com": "Outlook: account.microsoft.com → Security → Advanced security options → App passwords",
   "yahoo.com": "Yahoo: Account Info → Account security → Generate app password",
@@ -144,7 +145,7 @@ export default function SettingsPage() {
               </div>
             </Field>
             <button className="text-xs text-accent hover:underline" onClick={() => setAdvanced((v) => !v)}>
-              {advanced ? "Hide" : "Show"} server settings (auto-detected for Gmail, Outlook, Yahoo)
+              {advanced ? "Hide" : "Show"} server settings (auto-detected for Gmail, ALMA, Outlook, Yahoo)
             </button>
             {advanced && (
               <div className="grid grid-cols-4 gap-3">

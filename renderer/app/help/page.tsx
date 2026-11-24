@@ -63,7 +63,8 @@ const SECTIONS: Section[] = [
         <p className="mt-3 text-sm text-muted">
           <b className="text-fg">Outlook/Hotmail:</b> account.microsoft.com → Security → Advanced security options → App passwords.<br />
           <b className="text-fg">Yahoo:</b> Account Info → Account security → Generate app password.<br />
-          <b className="text-fg">Company email:</b> ask your IT administrator for an app password or the IMAP/SMTP settings.
+          <b className="text-fg">Company email:</b> ask your IT administrator for an app password or the IMAP/SMTP settings.<br />
+          <b className="text-fg">ALMA email (almallc.net):</b> use Google Workspace/Gmail servers. Create the app password while signed in to your exact almallc.net account, not a personal Gmail account.
         </p>
       </>
     ),
@@ -170,7 +171,7 @@ const SECTIONS: Section[] = [
     body: (
       <p className="text-sm">
         Your email and app password (click the 👁 eye to show it), display name, email signature, and where applicant files are saved.
-        Remember to click <b>Save</b> after changes.
+        Gmail and ALMA (almallc.net) server settings are detected automatically. Remember to click <b>Save</b> after changes.
       </p>
     ),
   },

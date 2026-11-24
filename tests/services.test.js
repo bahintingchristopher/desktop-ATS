@@ -88,6 +88,8 @@ test.after(() => {
 test("settings and mail config", () => {
   assert.deepEqual(data.STAGES.slice(0, 3), ["Applied", "Screened", "For Interview"]);
   assert.equal(settings.MAIL_PRESETS["gmail.com"].imapHost, "imap.gmail.com");
+  assert.equal(settings.MAIL_PRESETS["almallc.net"].imapHost, "imap.gmail.com");
+  assert.equal(settings.MAIL_PRESETS["almallc.net"].smtpHost, "smtp.gmail.com");
 
   settings.setSetting("data.folder", dataFolder);
   settings.setSetting("mail.email", "hr@gmail.com");
@@ -105,6 +107,14 @@ test("settings and mail config", () => {
   assert.equal(config.smtpHost, "smtp.gmail.com");
   assert.equal(config.displayName, "hr@gmail.com");
   assert.equal(config.fromEmail, "hr@gmail.com");
+
+  settings.setSetting("mail.email", "hr@almallc.net");
+  const almaConfig = settings.mailConfig();
+  assert.equal(almaConfig.imapHost, "imap.gmail.com");
+  assert.equal(almaConfig.imapPort, 993);
+  assert.equal(almaConfig.smtpHost, "smtp.gmail.com");
+  assert.equal(almaConfig.smtpPort, 465);
+  settings.setSetting("mail.email", "hr@gmail.com");
 
   encryptionAvailable = true;
   settings.setSetting("mail.password", "encrypted-secret");
